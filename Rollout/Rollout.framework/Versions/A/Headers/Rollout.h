@@ -1,5 +1,5 @@
 //
-//  Rollout SDK version {{lib_version}}
+//  Rollout SDK version 0.4.1, Build 24
 //
 //  Copyright (c) 2014 Rollout.io. All rights reserved.
 //
