@@ -53,6 +53,7 @@ _RE(RolloutNetwork_unknownError)
 _RE(RolloutNetwork_timeout)
 _RE(RolloutNetwork_jsonParsing)
 _RE(RolloutNetwork_emptyResult)
+_RE(RolloutNetwork_exceptionInsideAsyncNetworkRequest)
 
 @protocol RolloutDeviceProperties;
 
