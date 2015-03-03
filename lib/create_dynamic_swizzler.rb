@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
-require 'net/http'
+
 require "JSON"
-require "cgi"
+require_relative "errors_reporter"
 
 def wrapping(scope)
   producer_signature = scope[:producer_signature]
@@ -159,16 +159,7 @@ def wrapping(scope)
 "
 end
 
-def report_error(action, details)
-  errors_url = ARGV[1]
-  report_full_url = "#{errors_url}?action=#{CGI.escape(action)}&label=#{CGI.escape (details.to_s)}"
-  STDERR.puts "Will report error via url:'#{report_full_url}'"
-  result = Net::HTTP.get(URI(report_full_url))
-  STDERR.puts "report result: #{result}"
-end
-
-abort "Aborting: error_url and input_file_path should be supplied as arugments" unless ARGV.length == 2
-symbols  = JSON.parse(IO.read(ARGV[0]))
+symbols  = JSON.parse(ARGF.read)
 
 ignored_types = ["ConstantArray", "IncompleteArray", "FunctionProto", "Invalid", "Unexposed", "NullPtr","Overload","Dependent","ObjCId","ObjCClass","ObjCSel","FirstBuiltin","LastBuiltin","Complex","LValueReference","RValueReference","Typedef","ObjCInterface","FunctionNoProto","Vector","VariableArray","DependentSizedArray","MemberPointer"]
 
@@ -197,7 +188,7 @@ def fix_type_issue(data)
   when keep_types.include?( data["kind"])
     return { :type => data["type"], :kind => data["kind"]}
   else
-    return "ROLLOUT_ERROR(#{data["kind"]}, #{data["type"]}, #{data["size"]})"
+    return {:type => "__ROLLOUT_ERROR_TYPE(#{data["type"]})", :kind => "__ROLLOUT_ERROR_KIND(#{data["kind"]})", :error => true }
   end
 end
 
@@ -301,7 +292,7 @@ symbols.each { |f|
       
       if producer_signatures_hash.has_key? producer_signature
         if signature_data != producer_signatures_hash[producer_signature]
-          report_error("Different method objects share the same signature", {
+          ErrorsReporter.report_error("Different method objects share the same signature", {
             :signature => producer_signature,
             :objectA => producer_signatures_hash[producer_signature],
             :objectB => signature_data

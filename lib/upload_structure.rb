@@ -26,7 +26,7 @@ rescue
 end
 fatal $error_could_not_parse_json if json.nil?
 
-vars = ["md5", "arch", "env_GCC_PREPROCESSOR_DEFINITIONS__DEBUG", "rollout_appKey", "CFBundleShortVersionString", "CFBundleVersion", "rollout_build"]
+vars = ["md5", "env_GCC_PREPROCESSOR_DEFINITIONS__DEBUG", "rollout_appKey", "CFBundleShortVersionString", "CFBundleVersion", "rollout_build"]
 curl_args = vars.map() { |var|
   value = json[var]
   fatal $error_no_data_in_json, var if value.nil?
