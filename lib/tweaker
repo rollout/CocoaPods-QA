@@ -171,7 +171,7 @@ end_of_dynamic_include_part1
   cached_dynamic_o="$CACHE_DIR/$TARGET_NAME.$arch.RolloutDynamic.o"
   cached_dynamic_md5="${cached_dynamic_o%o}md5"
   dynamic_md5=`cat "$dynamic_include" "$rollout_dynamic_cmd_file" | md5` 
-  if [ "`cat "$cached_dynamic_md5" 2>/dev/null`" == $dynamic_md5 ]; then
+  if [ "`cat "$cached_dynamic_md5" 2>/dev/null`" == $dynamic_md5 -a -f "$cached_dynamic_o" ]; then
     echo "Rollout: using cached RolloutDynamic"
     cp -fv "$cached_dynamic_o" "$rollout_dynamic_o_file"
   else
@@ -191,7 +191,7 @@ end_of_dynamic_include_part1
   [ "$size_before" -lt "$size_after" ] || handle_error ERROR_expectedLargerBinaryAfterRelinking
 done
 
-cat /dev/null > "$dynamic_include"
+#cat /dev/null > "$dynamic_include"
 
 lipo_cmd_file="$TARGET_BUILD_DIR"/rollout_lipo_cmd
 if [ -f "$lipo_cmd_file" ] ; then

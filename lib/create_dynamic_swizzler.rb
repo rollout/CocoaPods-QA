@@ -171,10 +171,8 @@ def fix_type_issue(data)
  # Special - CXType_BlockPointer  CXType_Record   CXType_Enum  CXType_Pointer  CXType_ObjCObjectPointer  
   keep_types = [ "UShort","Char16","Char_U","Char16","Char32","Int128","UInt128","Bool","Float","Short","Long","WChar","ULong","Double","Int","Void","Char_S","UChar","SChar","LongLong","ULongLong","UInt","LongDouble"]
   case 
-  when "CGFloat" == data["origin"]
-    return { :type =>  data["origin"], :kind => "Float"}
-  when "BOOL" == data["origin"]
-    return { :type =>  data["origin"], :kind => "Bool"}
+  when ["CGFloat", "BOOL"].include?(data["kind"])
+    return { :type => data["type"], :kind => data["kind"], :origin => data["origin"]}
   when "ObjCObjectPointer" == data["kind"]
     return { :type => "id", :kind => data["kind"]}
   when "Pointer" == data["kind"]
@@ -188,13 +186,15 @@ def fix_type_issue(data)
   when keep_types.include?( data["kind"])
     return { :type => data["type"], :kind => data["kind"]}
   else
-    return {:type => "__ROLLOUT_ERROR_TYPE(#{data["type"]})", :kind => "__ROLLOUT_ERROR_KIND(#{data["kind"]})", :error => true }
+    ErrorsReporter.report_error("Unknown kind in fix_type_issue", data)
+    return nil
   end
 end
 
 
 extract_arguments_with_types = lambda { |a, index|
   t  =  fix_type_issue(a)
+  return t if t.nil?
   t[:name] = "arg#{index}"
   t
 }
@@ -226,12 +226,13 @@ end
 def object_signature_type(object)
   kind = object[:kind]
   type = object[:type]
+  origin = object[:origin]
   if kind == "Record"
     return "#{kind}_#{type.gsub(" ", "_RolloutSpace_")}"
   end
 
-  if ["CGFloat", "BOOL"].include? type
-    return type
+  if ["CGFloat", "BOOL"].include? origin
+    return origin
   end
 
   return kind
@@ -275,6 +276,7 @@ symbols.each { |f|
   f.each {|c|
     c["children"].select(&valid_for_swizzeling).each { |m| 
       method_return_object = fix_type_issue(m["return"])
+      next if method_return_object.nil?
       arguments_with_types  = m["args"].map.with_index(&extract_arguments_with_types)
 
       method_type = m["kind"] == "instance" ? "instanceMethod" : "classMethod"
