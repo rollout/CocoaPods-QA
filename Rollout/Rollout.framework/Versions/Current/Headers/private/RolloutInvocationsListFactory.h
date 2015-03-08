@@ -13,7 +13,6 @@
 @class RolloutErrors;
 @class RolloutTypeWrapperFactory;
 @class RolloutTypeWrapperGeneratorFactory;
-@class RolloutDeviceProperties;
 
 @protocol RolloutInvocationsListFactory
 - (RolloutInvocationsList *)invocationsListFromTweakConfiguration:(NSArray*)tweakConfiguration;
@@ -21,6 +20,6 @@
 
 @interface RolloutInvocationsListFactory : NSObject <RolloutInvocationsListFactory>
 
-- (instancetype)initWithProducer:(RolloutActionProducer *)producer rolloutErrors:(RolloutErrors *)rolloutErrors typeWrapperFactory:(RolloutTypeWrapperFactory *)typeWrapperFactory typeWrapperGeneratorFactory:(RolloutTypeWrapperGeneratorFactory *)typeWrapperGeneratorFactory conditionValuesFactory:(RolloutConditionValuesFactory *)conditionValuesFactory;
+- (instancetype)initWithProducer:(RolloutActionProducer *)producer rolloutErrors:(RolloutErrors *)rolloutErrors typeWrapperFactory:(RolloutTypeWrapperFactory *)typeWrapperFactory typeWrapperGeneratorFactory:(RolloutTypeWrapperGeneratorFactory *)typeWrapperGeneratorFactory;
 
 @end
