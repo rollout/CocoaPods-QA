@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require "json"
+require_relative "errors_reporter"
 
 $errors_dictionary = {
   $error_no_file_argument_given = 1 => "Usage: #{$0} <gzipped json structure>",
@@ -11,6 +12,9 @@ $errors_dictionary = {
 
 def fatal(code, *args)
   $stderr.printf $errors_dictionary[code] + "\n", *args
+  if code != $error_no_file_argument_given then
+    ErrorsReporter.report_error("upload_structure_failure", {"error_code" => code, "args" => args})
+  end
   exit code
 end
 

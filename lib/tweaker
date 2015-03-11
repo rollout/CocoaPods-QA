@@ -28,9 +28,9 @@ handle_error() {
 
   [ -z "$details" ] || message="$message: $details"
 
-  [ -z $xcode_alert ] || echo "$xcode_alert: $message" 1>&2
+  [ -z "$xcode_alert" ] || echo "$xcode_alert: $message" 1>&2
   "$LIB_DIR"/errors_reporter.rb "tweaker error" "$message"
-  [ -z $exit ] || exit $exit
+  [ -z "$exit" ] || exit $exit
 }
 
 temp_dir=`mktemp -d /tmp/rollout_tmp.XXX`
@@ -57,8 +57,8 @@ extract_cmd_data() {
   } < "$cmd_file"
 }
 
-unset app_key help exit disable_upload clean
-while getopts "k:hmc" option; do
+unset app_key help exit disable_upload clean disable_locale_enforcement
+while getopts "k:hmcl" option; do
   case $option in
     k)
       app_key=$OPTARG
@@ -71,6 +71,9 @@ while getopts "k:hmc" option; do
       ;;
     c)
       clean=1
+      ;;
+    l)
+      disable_locale_enforcement=1
       ;;
     *)
       exit=1
@@ -86,6 +89,7 @@ $0 <options>
   -k <app key>           Rollout app key (required)
   -m                     disable uploading of structure json to Rollout server
   -c                     clean the cache directory
+  -l                     don't force UTF-8 locale
   -h                     this help message
 EOF
   exit
@@ -101,11 +105,12 @@ EOF
 
 [ -n "$app_key" ] || { echo "app_key argument is required" 1>&2; exit 2; }
 
+[ -n "$disable_locale_enforcement" ] || export LC_ALL=UTF-8
+
 echo "Rollout post compile script"
 
 required_installed_build=`(. "$LIB_DIR"/versions; echo $required_installed_build)`
-last_installed_build=`cat "$ROLLOUT_DIR"/.last_installed_build 2>/dev/null`
-[ 0$last_installed_build -ge $required_installed_build ] || {
+[ 0$ROLLOUT_lastConfiguredBuildInXcodeproj -ge $required_installed_build ] || {
   cat << end_of_error_msg
 Rollout.io SDK version was not reconfigured, aborting...
 Our guess is that you changed Rollout.io version in your podfile, but have not reconfigured it yet.
@@ -135,7 +140,7 @@ export ROLLOUT_appKey=$app_key
 
 current_sdk_version=`(. "$LIB_DIR"/versions; echo $lib)`
 cache_sdk_version="$CACHE_DIR"/sdk_version
-preprocessor_debug=`( eval $GCC_PREPROCESSOR_DEFINITIONS; echo $DEBUG )`
+preprocessor_debug=`(eval typeset $GCC_PREPROCESSOR_DEFINITIONS; echo ${DEBUG+1})`
 bundle_version=`get_info_plist_value CFBundleVersion`
 rollout_build=`(. "$LIB_DIR"/versions; echo $build)`
 
@@ -156,9 +161,9 @@ for linker_list_file in ${!LINK_FILE_LIST_*}; do
 
   dsym_file=$temp_dir/tmp.dsym
 
-  "$DEVELOPER_DIR"/Toolchains/XcodeDefault.xctoolchain/usr/bin/dsymutil "$linker_out_file" -o "$dsym_file"
+  xcrun dsymutil "$linker_out_file" -o "$dsym_file"
   extract_symbols_errors=$({ "$LIB_DIR/ExtractSymbols" "$dsym_file"/Contents/Resources/DWARF/* | "$LIB_DIR"/json_proxy.rb "$LIB_DIR"/static_json_part > $arch_json; } 2>&1 | while read line; do echo -n "$line\\n"; done)
-  [ -z $extract_symbols_errors ] || handle_error ERROR_extractSymbolsErrors "$extract_symbols_errors"
+  [ -z "$extract_symbols_errors" ] || handle_error ERROR_extractSymbolsErrors "$extract_symbols_errors"
 
   cat > "$dynamic_include" << end_of_dynamic_include_part1
 @implementation RolloutDynamic(arch)
@@ -179,14 +184,12 @@ end_of_dynamic_include_part1
   else
     echo "Rollout: compiling RolloutDynamic ($arch)"
     extract_cmd_data "$rollout_dynamic_cmd_file" rollout_dynamic_cc_cmd rollout_dynamic_cc_args
-    $rollout_dynamic_cc_cmd "${rollout_dynamic_cc_args[@]}"
+    "$rollout_dynamic_cc_cmd" "${rollout_dynamic_cc_args[@]}"
     cp -f "$rollout_dynamic_o_file" "$cached_dynamic_o"
     echo "$dynamic_md5" > "$cached_dynamic_md5"
   fi
 
   echo "Rollout: relinking ($arch)"
-  extract_cmd_data "${!linker_list_file%.*}.rollout_linker_cmd" linker_cmd linker_args
-  linker_out_file=`echo ${linker_args[*]} | sed -e 's/.* -o //' -e 's/ -.*//'`
   size_before=`stat -f\%z "$linker_out_file"`
   "$linker_cmd" "${linker_args[@]}"
   size_after=`stat -f\%z "$linker_out_file"`
@@ -238,7 +241,6 @@ create_json_file() {
     echo -n "\"md5\":\"$data_md5\",\"env_GCC_PREPROCESSOR_DEFINITIONS__DEBUG\":\"$preprocessor_debug\",\"rollout_appKey\":\"$app_key\",\"CFBundleShortVersionString\":\"$ROLLOUT_shortVersion\",\"CFBundleVersion\":\"$bundle_version\",\"rollout_build\":\"$rollout_build\"}"
   } > "$json_file"
 }
-
 create_json_file "$JSON_WITH_DATA" include_data
 create_json_file "$JSON_WITHOUT_DATA"
 

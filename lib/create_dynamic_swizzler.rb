@@ -171,7 +171,7 @@ def fix_type_issue(data)
  # Special - CXType_BlockPointer  CXType_Record   CXType_Enum  CXType_Pointer  CXType_ObjCObjectPointer  
   keep_types = [ "UShort","Char16","Char_U","Char16","Char32","Int128","UInt128","Bool","Float","Short","Long","WChar","ULong","Double","Int","Void","Char_S","UChar","SChar","LongLong","ULongLong","UInt","LongDouble"]
   case 
-  when ["CGFloat", "BOOL"].include?(data["kind"])
+  when ["CGFloat", "BOOL"].include?(data["origin"])
     return { :type => data["type"], :kind => data["kind"], :origin => data["origin"]}
   when "ObjCObjectPointer" == data["kind"]
     return { :type => "id", :kind => data["kind"]}
@@ -276,7 +276,6 @@ symbols.each { |f|
   f.each {|c|
     c["children"].select(&valid_for_swizzeling).each { |m| 
       method_return_object = fix_type_issue(m["return"])
-      next if method_return_object.nil?
       arguments_with_types  = m["args"].map.with_index(&extract_arguments_with_types)
 
       method_type = m["kind"] == "instance" ? "instanceMethod" : "classMethod"

@@ -36,8 +36,6 @@ types_map = {
 }
 
 src.each do |compile_unit|
-  compile_unit["kind"] = compile_unit["kind"]
-
   compile_unit["children"].delete_if { |method| method["args"].any? { |arg| arg["symbol"] == "_cmd" } }
 
   compile_unit["children"].each do |method_src|
@@ -46,8 +44,8 @@ src.each do |compile_unit|
     if clazz.nil?
       clazz = {
         "kind" => compile_unit["kind"],
-	"symbol" => clazz_key,
-	"children" => []
+        "symbol" => clazz_key,
+        "children" => []
       }
       clazzes[clazz_key] = clazz
     end
@@ -63,28 +61,28 @@ src.each do |compile_unit|
 
     if method["return"] == "(null)" then
       method["return"] = {
-                        "file" => "(null)",
-                        "kind" => "Void",
-                        "line" => 0,
-                        "origin" => "void",
-                        "size" => "-2",
-                        "type" => "void"
-                    }
+        "file" => "(null)",
+        "kind" => "Void",
+        "line" => 0,
+        "origin" => "void",
+        "size" => "-2",
+        "type" => "void"
+      }
     end
 
     (method["args"] + [method["return"]]).each { |arg|
-       converted_kind = kinds_map[arg["kind"]];
-       arg["kind"] = converted_kind unless converted_kind.nil?
+      converted_kind = kinds_map[arg["kind"]];
+      arg["kind"] = converted_kind unless converted_kind.nil?
 
-       converted_type = types_map[arg["type"]];
-       arg["type"] = converted_type unless converted_type.nil?
+      converted_type = types_map[arg["type"]];
+      arg["type"] = converted_type unless converted_type.nil?
 
-       converted_origin = origins_map[arg["origin"]];
-       arg["origin"] = converted_origin unless converted_origin.nil?
+      converted_origin = origins_map[arg["origin"]];
+      arg["origin"] = converted_origin unless converted_origin.nil?
     }
   end
 
-  
+
 end
 
 puts JSON.generate [clazzes.values]

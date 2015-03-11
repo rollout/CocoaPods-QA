@@ -24,14 +24,14 @@ files_to_add.each do |full_path|
   add_file_result = [add_file.add_file(full_path), add_file_result].max
 end
 
-script_content = "\"\${SRCROOT}/#{sdk_subdir}/lib/tweaker\" -k #{app_key}"
+base_dir = "#{File.dirname __FILE__}/../.."
+build=`. '#{base_dir}/lib/versions' ; /bin/echo -n $build`
+
+script_content = "ROLLOUT_lastConfiguredBuildInXcodeproj=#{build} \"\${SRCROOT}/#{sdk_subdir}/lib/tweaker\" -k #{app_key}"
 CreateScript.new(project).create_script("Rollout.io post-build", script_content)
 
 OverrideClang.new(project).install("\${SRCROOT}/#{sdk_subdir}/lib")
 
 project.save()
-
-base_dir = "#{File.dirname __FILE__}/../.."
-system "{ . '#{base_dir}/lib/versions' ; echo $build; } > '#{base_dir}'/.last_installed_build"
 
 exit add_file_result
