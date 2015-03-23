@@ -160,6 +160,7 @@ def wrapping(scope)
 end
 
 symbols  = JSON.parse(ARGF.read)
+$structs = symbols.shift
 
 ignored_types = ["ConstantArray", "IncompleteArray", "FunctionProto", "Invalid", "Unexposed", "NullPtr","Overload","Dependent","ObjCId","ObjCClass","ObjCSel","FirstBuiltin","LastBuiltin","Complex","LValueReference","RValueReference","Typedef","ObjCInterface","FunctionNoProto","Vector","VariableArray","DependentSizedArray","MemberPointer"]
 
@@ -182,7 +183,7 @@ def fix_type_issue(data)
   when "Enum" == data["kind"]
     return { :type => "__rollout_enum", :kind => data["kind"]}
   when "Record" == data["kind"]
-    return { :type =>  data["type"], :kind => data["kind"]}
+    return { :type =>  data["struct_name"], :origin => data["type"], :kind => data["kind"]}
   when keep_types.include?( data["kind"])
     return { :type => data["type"], :kind => data["kind"]}
   else
@@ -205,7 +206,12 @@ valid_for_swizzeling  = lambda { |m|
   return false if m["symbol"] == "dealloc" 
   true
 }
+def struct_name(a)
+  ref = a["record_data_ref"]
+  $structs[ref]["name"]
+end
 def figure_out_import(d)
+  return nil
   file = d["file"]
   if d["is_in_system_header"] != 0 
     match = file.match(/\/([^\/]*)\.framework\/Headers\/([^\/]*.h)$/)
@@ -228,7 +234,7 @@ def object_signature_type(object)
   type = object[:type]
   origin = object[:origin]
   if kind == "Record"
-    return "#{kind}_#{type.gsub(" ", "_RolloutSpace_")}"
+    return "#{kind}_#{origin.gsub(" ", "_RolloutSpace_")}"
   end
 
   if ["CGFloat", "BOOL"].include? origin
@@ -246,25 +252,32 @@ symbols.each { |f|
         #types.push(a["size"]) if a["kind"] == "Record" 
         m["__should_be_removed"] = true if ignored_types.include?( a["kind"])
         if a["kind"] == "Record"
-          import = figure_out_import(a)
-          if import
-            defines.push(import)
-          else 
-            m["__should_be_removed"] = true
-          end
+          a["struct_name"] = struct_name(a)
         end
       }
       m["__should_be_removed"] = true  if ignored_types.include?( m["return"]["kind"]) 
       if m["return"]["kind"] == "Record"
-        import = figure_out_import(m["return"])
-        if import
-          defines.push(import)
-        else 
-          m["__should_be_removed"] = true
-        end
+        m["return"]["struct_name"] = struct_name(m["return"])
       end
     }
   }
+}
+def print_struct(s)
+  return if s["printed"]
+  s["children"].each { |c|
+    print_struct($structs[c["record_data_ref"]]) if c["kind"] == "Record"  
+  }
+  name = s["name"]
+  puts "typedef struct #{name} {"
+  s["children"].each { |c|
+    type = c["kind"] == "Record" ? $structs[c["record_data_ref"]]["name"] : c["type"]
+    puts "  #{type} #{c["symbol"]};" unless c.empty?
+  }
+  puts "} #{name};"
+  s["printed"] = true
+end
+$structs.values.each { |s| 
+  print_struct(s)
 }
 defines.uniq().each { |i|
   puts "#import #{i}"
@@ -288,11 +301,11 @@ symbols.each { |f|
         :return_object => method_return_object,
         :type =>  m["kind"] == "instance" ? "Instance" : "Class",
         :args => arguments_with_types,
-	:producer_signature => producer_signature
+        :producer_signature => producer_signature
       }
       
       if producer_signatures_hash.has_key? producer_signature
-        if signature_data != producer_signatures_hash[producer_signature]
+        if false and signature_data != producer_signatures_hash[producer_signature]
           ErrorsReporter.report_error("Different method objects share the same signature", {
             :signature => producer_signature,
             :objectA => producer_signatures_hash[producer_signature],

@@ -140,7 +140,7 @@ export ROLLOUT_appKey=$app_key
 
 current_sdk_version=`(. "$LIB_DIR"/versions; echo $lib)`
 cache_sdk_version="$CACHE_DIR"/sdk_version
-preprocessor_debug=`(eval typeset $GCC_PREPROCESSOR_DEFINITIONS; echo ${DEBUG+1})`
+preprocessor_debug=""; [ -z "$GCC_PREPROCESSOR_DEFINITIONS" ] || preprocessor_debug=`(eval typeset $GCC_PREPROCESSOR_DEFINITIONS; echo ${DEBUG+1})`
 bundle_version=`get_info_plist_value CFBundleVersion`
 rollout_build=`(. "$LIB_DIR"/versions; echo $build)`
 
