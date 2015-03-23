@@ -210,25 +210,6 @@ def struct_name(a)
   ref = a["record_data_ref"]
   $structs[ref]["name"]
 end
-def figure_out_import(d)
-  return nil
-  file = d["file"]
-  if d["is_in_system_header"] != 0 
-    match = file.match(/\/([^\/]*)\.framework\/Headers\/([^\/]*.h)$/)
-    if match
-      framework, header = match.captures
-      return "<#{framework}/#{header}>"
-    end
-  else
-    match = file.match(/([^\/]*.h)$/)
-    if match
-      header = match.captures[0]
-      return "\"#{header}\""
-    end
-  end
-  return nil
-end
-
 def object_signature_type(object)
   kind = object[:kind]
   type = object[:type]
@@ -250,12 +231,12 @@ symbols.each { |f|
     c["children"].select(&valid_for_swizzeling).each { |m| 
       m["args"].each { |a| 
         #types.push(a["size"]) if a["kind"] == "Record" 
-        m["__should_be_removed"] = true if ignored_types.include?( a["kind"])
+        m["__should_be_removed"] = true if ignored_types.include?( a["kind"]) or a["kind"].nil?
         if a["kind"] == "Record"
           a["struct_name"] = struct_name(a)
         end
       }
-      m["__should_be_removed"] = true  if ignored_types.include?( m["return"]["kind"]) 
+      m["__should_be_removed"] = true  if ignored_types.include?( m["return"]["kind"]) or m["return"]["kind"].nil?
       if m["return"]["kind"] == "Record"
         m["return"]["struct_name"] = struct_name(m["return"])
       end
@@ -270,8 +251,9 @@ def print_struct(s)
   name = s["name"]
   puts "typedef struct #{name} {"
   s["children"].each { |c|
-    type = c["kind"] == "Record" ? $structs[c["record_data_ref"]]["name"] : c["type"]
-    puts "  #{type} #{c["symbol"]};" unless c.empty?
+    next if c.empty?
+    type = c["kind"] == "Record" ? $structs[c["record_data_ref"]]["name"] : fix_type_issue(c)[:type] 
+    puts "  #{type} #{c["symbol"]};"
   }
   puts "} #{name};"
   s["printed"] = true
