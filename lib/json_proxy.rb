@@ -194,5 +194,4 @@ while not ($record_types.values.find { |record| record["status"] == "missing" })
   end
 end
 
-#STDERR.puts JSON.generate  $record_types
-puts JSON.generate [$record_types, clazzes.values]
+puts JSON.generate({ "structs" => $record_types, "methods" => clazzes.values})

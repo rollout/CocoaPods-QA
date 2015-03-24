@@ -159,8 +159,9 @@ def wrapping(scope)
 "
 end
 
-symbols  = JSON.parse(ARGF.read)
-$structs = symbols.shift
+input = JSON.parse(ARGF.read)
+symbols  = input["methods"]
+$structs = input["structs"]
 
 ignored_types = ["ConstantArray", "IncompleteArray", "FunctionProto", "Invalid", "Unexposed", "NullPtr","Overload","Dependent","ObjCId","ObjCClass","ObjCSel","FirstBuiltin","LastBuiltin","Complex","LValueReference","RValueReference","Typedef","ObjCInterface","FunctionNoProto","Vector","VariableArray","DependentSizedArray","MemberPointer"]
 
@@ -226,21 +227,19 @@ def object_signature_type(object)
 end
 
 defines = []
-symbols.each { |f| 
-  f.each {|c|
-    c["children"].select(&valid_for_swizzeling).each { |m| 
-      m["args"].each { |a| 
-        #types.push(a["size"]) if a["kind"] == "Record" 
-        m["__should_be_removed"] = true if ignored_types.include?( a["kind"]) or a["kind"].nil?
-        if a["kind"] == "Record"
-          a["struct_name"] = struct_name(a)
-        end
-      }
-      m["__should_be_removed"] = true  if ignored_types.include?( m["return"]["kind"]) or m["return"]["kind"].nil?
-      if m["return"]["kind"] == "Record"
-        m["return"]["struct_name"] = struct_name(m["return"])
+symbols.each { |c| 
+  c["children"].select(&valid_for_swizzeling).each { |m| 
+    m["args"].each { |a| 
+      #types.push(a["size"]) if a["kind"] == "Record" 
+      m["__should_be_removed"] = true if ignored_types.include?( a["kind"]) or a["kind"].nil?
+      if a["kind"] == "Record"
+        a["struct_name"] = struct_name(a)
       end
     }
+    m["__should_be_removed"] = true  if ignored_types.include?( m["return"]["kind"]) or m["return"]["kind"].nil?
+    if m["return"]["kind"] == "Record"
+      m["return"]["struct_name"] = struct_name(m["return"])
+    end
   }
 }
 def print_struct(s)
@@ -267,39 +266,37 @@ defines.uniq().each { |i|
 puts "@implementation RolloutDynamic(blocks)"
 
 producer_signatures_hash = {}
-symbols.each { |f| 
-  f.each {|c|
-    c["children"].select(&valid_for_swizzeling).each { |m| 
-      method_return_object = fix_type_issue(m["return"])
-      arguments_with_types  = m["args"].map.with_index(&extract_arguments_with_types)
+symbols.each { |c| 
+  c["children"].select(&valid_for_swizzeling).each { |m| 
+    method_return_object = fix_type_issue(m["return"])
+    arguments_with_types  = m["args"].map.with_index(&extract_arguments_with_types)
 
-      method_type = m["kind"] == "instance" ? "instanceMethod" : "classMethod"
-      method_signature_args = [object_signature_type(method_return_object)]
-      arguments_with_types.each{|o| method_signature_args << object_signature_type(o)}
-      method_signature = method_signature_args.join "___"
+    method_type = m["kind"] == "instance" ? "instanceMethod" : "classMethod"
+    method_signature_args = [object_signature_type(method_return_object)]
+    arguments_with_types.each{|o| method_signature_args << object_signature_type(o)}
+    method_signature = method_signature_args.join "___"
 
-      producer_signature = "#{method_type}_#{method_signature}"
-      signature_data = {
-        :return_object => method_return_object,
-        :type =>  m["kind"] == "instance" ? "Instance" : "Class",
-        :args => arguments_with_types,
-        :producer_signature => producer_signature
-      }
-      
-      if producer_signatures_hash.has_key? producer_signature
-        if false and signature_data != producer_signatures_hash[producer_signature]
-          ErrorsReporter.report_error("Different method objects share the same signature", {
-            :signature => producer_signature,
-            :objectA => producer_signatures_hash[producer_signature],
-            :objectB => signature_data
-          })
-        end
-        next
-      end
-
-      producer_signatures_hash[producer_signature] = signature_data
-      puts wrapping(signature_data)
+    producer_signature = "#{method_type}_#{method_signature}"
+    signature_data = {
+      :return_object => method_return_object,
+      :type =>  m["kind"] == "instance" ? "Instance" : "Class",
+      :args => arguments_with_types,
+      :producer_signature => producer_signature
     }
+
+    if producer_signatures_hash.has_key? producer_signature
+      if false and signature_data != producer_signatures_hash[producer_signature]
+        ErrorsReporter.report_error("Different method objects share the same signature", {
+          :signature => producer_signature,
+          :objectA => producer_signatures_hash[producer_signature],
+          :objectB => signature_data
+        })
+      end
+      next
+    end
+
+    producer_signatures_hash[producer_signature] = signature_data
+    puts wrapping(signature_data)
   }
 }
 
