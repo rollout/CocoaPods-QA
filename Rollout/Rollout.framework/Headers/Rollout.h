@@ -1,5 +1,5 @@
 //
-//  Rollout SDK version 0.8.1, Build 54
+//  Rollout SDK version 0.8.1, Build 55
 //
 //  Copyright (c) 2014 Rollout.io. All rights reserved.
 //

@@ -157,7 +157,7 @@ rollout_build=`(. "$LIB_DIR"/versions; echo $build)`
 mkdir -p "$CACHE_DIR"
 echo $current_sdk_version > "$cache_sdk_version"
 
-$LIB_DIR/contains_swift_files.rb "$PROJECT_FILE_PATH" "$TARGETNAME" &&
+"$LIB_DIR/contains_swift_files.rb" "$PROJECT_FILE_PATH" "$TARGETNAME" &&
   handle_error ERROR_swiftDetected
 
 typeset -i number_of_archs=0
