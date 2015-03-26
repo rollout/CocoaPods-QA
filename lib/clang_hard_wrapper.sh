@@ -5,11 +5,11 @@
 # 1. Save clang location 
 #    original_clang_location="`xcrun -f clang`"        
 # 2. Unless already installed: 
-#     sudo mv $original_clang_location $original_clang_location.real_clang_wrapped_by_Rollout.io
+#     sudo mv "$original_clang_location" "$original_clang_location".real_clang_wrapped_by_Rollout.io
 # 3. Create the wrapper link
-#     sudo ln -s <project-Rollout-SDK>/clang_hard_wrapper.sh $original_clang_location
+#     sudo ln -s "<project-Rollout-SDK>"/clang_hard_wrapper.sh "$original_clang_location"
 # 4. Add the following line to .rollout/clang_hard_wrapper.config:
-#     mkdir ~/.rollout/  && vim rollout/clang_hard_wrapper.config 
+#     mkdir ~/.rollout/  && vim ~/.rollout/clang_hard_wrapper.config 
 #     <target name>=<absolute path to rollout sdk inside the project>
 
 
