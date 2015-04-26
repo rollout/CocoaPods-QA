@@ -142,8 +142,8 @@ EOF
 
 echo "Rollout post compile script"
 
-required_installed_build=`(. "$LIB_DIR"/versions; echo $required_installed_build)`
-[ 0$ROLLOUT_lastConfiguredBuildInXcodeproj -ge $required_installed_build ] || {
+xcodeproj_configuration=`(. "$LIB_DIR"/versions; echo $xcodeproj_configuration)`
+[ 0$ROLLOUT_lastXcodeprojConfiguration -ge $xcodeproj_configuration ] || {
   cat << end_of_error_msg
 Rollout.io SDK version was not reconfigured, aborting...
 Our guess is that you changed Rollout.io version in your podfile, but have not reconfigured it yet.
