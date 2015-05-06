@@ -187,11 +187,31 @@ mkdir -p "$CACHE_DIR"
 echo $current_sdk_version > "$cache_sdk_version"
 
 typeset -i number_of_archs=0
-for linker_list_file in ${!LINK_FILE_LIST_*}; do
+for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
   let number_of_archs++
-  arch="${linker_list_file#LINK_FILE_LIST_}"
+  arch="${linker_list_file#LINK_FILE_LIST_normal_}"
   arch_json=$temp_dir/arch_json.$arch
-  extract_cmd_data "${!linker_list_file%.*}.rollout_linker_cmd" linker_cmd linker_args
+  linker_cmd_file="${!linker_list_file%.*}.rollout_linker_cmd"
+
+  report_tgz="$CACHE_DIR"/derive_linker_cmd."$TARGET_NAME".report.tgz
+  [ -f "$report_tgz" -o ! -f "$linker_cmd_file" ] || {
+    "$LIB_DIR"/derive_linker_cmd $arch > $temp_dir/derive_linker_cmd.out 2>&1
+    diff -Bq "$linker_cmd_file" $temp_dir/derive_linker_cmd.out > /dev/null || {
+      report_dir=$temp_dir/derive_linker_cmd.report.$arch
+      mkdir $report_dir
+      cp "$linker_cmd_file" $report_dir/original
+      mv $temp_dir/derive_linker_cmd.out $report_dir/derived
+      env > $report_dir/env
+      cat > $report_dir/additional_data << end_of_additional_data
+arch: $arch
+end_of_additional_data
+      tar -czf "$report_tgz" -C $report_dir .
+      upload_server="$ROLLOUT_allServicesInOneServer"; [ -n "$upload_server" ] || upload_server=upload.rollout.io
+      curl -F derive_linker_cmd_report=@"$report_tgz" "http://$upload_server/build/derive_linker_flags/$app_key" > /dev/null 2>&1 &
+    }
+  }
+
+  extract_cmd_data "$linker_cmd_file" linker_cmd linker_args
   linker_out_file=`get_opt_arg linker_args -o`
 
   dsym_file=$temp_dir/tmp.dsym
