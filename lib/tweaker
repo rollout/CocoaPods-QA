@@ -86,6 +86,7 @@ get_opt_arg() { #{{{
   done
 } #}}}
 
+unset measurements_list
 measurements_locals() {
   local start=RolloutTweakerMeasurements__$1__start
   local finish=RolloutTweakerMeasurements__$1__finish
@@ -98,6 +99,7 @@ begin_measurement() {
   [ -z "${!start}" ] || echo "warning: overriding start measurement for $1"
   local value=`ruby -e 'puts Time.now.to_f'`
   eval $start=$value
+  measurements_list[${#measurements_list[*]}]=$1
 }
 
 end_measurement() {
@@ -223,7 +225,9 @@ for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
   linker_out_file=`get_opt_arg linker_args -o`
 
   dsym_file=$temp_dir/tmp.dsym
+  begin_measurement temp_dsymutil_$arch
   xcrun dsymutil "$linker_out_file" -o "$dsym_file"
+  end_measurement temp_dsymutil_$arch
   
   begin_measurement extract_symbols_$arch
   extract_symbols_errors=$({ "$LIB_DIR/ExtractSymbols" "`ls -1 "$dsym_file"/Contents/Resources/DWARF/* | head -1`" "$LIB_DIR"/static_json_part > $arch_json; } 2>&1 | while read line; do echo -n "$line\\n"; done)
@@ -235,12 +239,13 @@ for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
   "${LIB_DIR}/create_dynamic_swizzler.rb" $arch_json "$dynamic_files_prefix" $arch || exit 3
   end_measurement create_dynamic_swizzler_$arch
 
+  structs_header="${dynamic_files_prefix}structs.h"
   rollout_dynamic_o_file=`cat "${!linker_list_file}" | grep RolloutDynamic.o`
   rollout_dynamic_cmd_file="${rollout_dynamic_o_file%o}rollout_compile_cmd"
   if [ -f "$rollout_dynamic_cmd_file" ] ; then
     sed -i "" -e 's@.*/RolloutDynamic\.m$@__rollout_dynamic_input_file__@' -e 's@.*RolloutDynamic\.o@__rollout_dynamic_output_file__@' "$rollout_dynamic_cmd_file"
     sed -i "" -E '/^(-MF|--serialize-diagnostics)/ { N; d; }' "$rollout_dynamic_cmd_file"
-    rollout_dynamic_cmd_md5=`md5 < "$rollout_dynamic_cmd_file"`
+    rollout_dynamic_cmd_md5=`cat "$rollout_dynamic_cmd_file" "$structs_header" | md5`
   fi
   extract_cmd_data "$rollout_dynamic_cmd_file" rollout_dynamic_cc_cmd rollout_dynamic_cc_args
 
@@ -260,9 +265,9 @@ for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
       echo "Rollout: using cache for ${dynamic_output##*/}"
       cp "$cached_dynamic_o" "$dynamic_output"
     else
-      while [ `jobs -p | wc -l` -ge 4 ]; do sleep 1; done
+      while [ `jobs -p | wc -l` -ge $max_concurrent_jobs ]; do sleep 0.1; done
       echo "Rollout: compiling ${dynamic_include##*/}"
-      sed -i "" -e "s@{{ROLLOUT_TEMPLATE__structs_file}}@${dynamic_files_prefix}structs.h@" "$dynamic_include"
+      sed -i "" -e "s@{{ROLLOUT_TEMPLATE__structs_file}}@${structs_header}@" "$dynamic_include"
       rollout_dynamic_cc_args_tmp=("${rollout_dynamic_cc_args[@]/__rollout_dynamic_input_file__/$dynamic_include}")
       rollout_dynamic_cc_args_specific=("${rollout_dynamic_cc_args_tmp[@]/__rollout_dynamic_output_file__/$dynamic_output}")
       "$rollout_dynamic_cc_cmd" "${rollout_dynamic_cc_args_specific[@]}" && {
@@ -277,7 +282,9 @@ for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
   printf '%s\n' "${all_dynamic_o_files[@]}" >> "${!linker_list_file}"
   echo "Rollout: relinking ($arch) => $linker_out_file"
   declare -i size_before=`stat -f\%z "$linker_out_file"`
+  begin_measurement linking_$arch
   "$linker_cmd" "${linker_args[@]}"
+  end_measurement linking_$arch
   declare -i size_after=`stat -f\%z "$linker_out_file"`
   [ $size_before -lt $size_after ] || handle_error ERROR_expectedLargerBinaryAfterRelinking
 done
@@ -299,7 +306,9 @@ fi
 if [ -z "$do_not_override_dsym" -a "$DEBUG_INFORMATION_FORMAT" == "dwarf-with-dsym" ]; then
   dsym_destination_dir="$DWARF_DSYM_FOLDER_PATH/$DWARF_DSYM_FILE_NAME"
   echo "Regenerating dsym file (\"$dsym_source_file\" -> \"$dsym_destination_dir\")"
+  begin_measurement final_dsymutil
   xcrun dsymutil "$dsym_source_file" -o "$dsym_destination_dir" || handle_error ERROR_dsymOverrideError
+  end_measurement final_dsymutil
 fi
 
 joined_json=$temp_dir/joined_json
@@ -334,7 +343,7 @@ create_json_file() { #{{{
 create_json_file "$JSON_WITH_DATA" include_data
 create_json_file "$JSON_WITHOUT_DATA"
 
-echo warning: commented: rm -rf "$temp_dir"
+rm -rf "$temp_dir"
 
 # Compress and archive/upload the JSON if needed #{{{
 unset do_not_archive_json
@@ -371,10 +380,11 @@ fi #}}}
 
 end_measurement ALL
 echo "Measurements results: "
-for measurement in ${!RolloutTweakerMeasurements__*}; do
-  [ ${measurement##*__} == duration ] || continue
-  measurement_nosuffix=${measurement%__*}
-  start=${measurement_nosuffix}__start
-  finish=${measurement_nosuffix}__finish
-  echo "    ${measurement_nosuffix#RolloutTweakerMeasurements__}: ${!measurement}  (${!start} - ${!finish})"
+for measurement_title in ${measurements_list[*]}; do
+  prefix=RolloutTweakerMeasurements__${measurement_title}__
+  duration="${prefix}duration"
+  [ -n "${!duration}" ] || continue
+  start=${prefix}start
+  finish=${prefix}finish
+  echo "    ${measurement_title}: ${!duration}  (${!start} - ${!finish})"
 done

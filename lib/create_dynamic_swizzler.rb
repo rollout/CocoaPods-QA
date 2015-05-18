@@ -306,7 +306,7 @@ symbols.each.select(&valid_for_swizzeling).each { |m|
   producer_signatures_hash[producer_signature] = signature_data
 }
 
-number_of_chunks = [[4, producer_signatures_hash.keys.length / 20].max, 400].min
+number_of_chunks = [[4, producer_signatures_hash.keys.length / 40].max, 400].min
 outputs = []
 (0..number_of_chunks).to_a.each { |chunk|
   chunk_string = "%03d" % chunk
