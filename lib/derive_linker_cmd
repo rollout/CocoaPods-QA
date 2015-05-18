@@ -18,6 +18,10 @@ def env_with_replaced_current_arch(name)
   return env(name).sub(/\b#{env("CURRENT_ARCH")}\b/, "#{$arch}")
 end
 
+def split_with_spaces(value)
+  value.rstrip().split(" /").map {|e| e.start_with?("/") ? e : "/#{e}" }
+end
+
 def recursively_extract_value(data, eval_required)
   env_var = data["environmentVariable"]
   return data if env_var.nil?
@@ -112,8 +116,8 @@ args.push `xcrun -f clang`
 args.push "-arch", $arch
 args.push "-bundle" if ENV["MACH_O_TYPE"] == "mh_bundle"
 args.push "-isysroot", env("SDK_DIR")
-env("LIBRARY_SEARCH_PATHS").split(" ").each {|library_path| args.push "-L#{library_path}"}
-env("FRAMEWORK_SEARCH_PATHS").split(" ").each {|framework_path| args.push "-F#{framework_path}"}
+split_with_spaces(env("LIBRARY_SEARCH_PATHS")).each {|library_path| args.push "-L#{library_path}"}
+split_with_spaces(env("FRAMEWORK_SEARCH_PATHS")).each {|framework_path| args.push "-F#{framework_path}"}
 args.push "-filelist", env("LINK_FILE_LIST_normal_#{$arch}")
 args.push "-exported_symbols_list", env("EXPORTED_SYMBOLS_FILE") unless ENV["EXPORTED_SYMBOLS_FILE"].nil?
 args.push "-Xlinker", "--no-demangle" if ENV["LINKER_DISPLAYS_MANGLED_NAMES"] == "YES"
