@@ -252,7 +252,7 @@ for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
   begin_measurement rollout_dynamic_compilation_$arch
   unset all_dynamic_o_files
   max_concurrent_jobs=`sysctl -n hw.ncpu`
-  for dynamic_include in $dynamic_files_prefix*.m; do
+  for dynamic_include in "$dynamic_files_prefix"*.m; do
     dynamic_m_basename=`basename "$dynamic_include"`
     dynamic_output="`dirname "$rollout_dynamic_o_file"`/${dynamic_m_basename%m}o"
     all_dynamic_o_files[${#all_dynamic_o_files[*]}]="$dynamic_output"
