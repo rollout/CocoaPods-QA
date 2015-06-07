@@ -26,19 +26,20 @@ ERROR_dsymOverrideError=("message=dSYM regenerating failed" "xcode_alert=warning
 ERROR_couldNotReadInfoPlistValue=("exit=7" "message=Could not read info.plist value. Please contact us at support@rollout.io. Details" "xcode_alert=error")
 ERROR_dsymFileNotFound=("exit=8" "message=dsym file not found. Please contact us at support@rollout.io . Details" "xcode_alert=error")
 ERROR_couldNotSeparateDsymBundle=("exit=9" "message=dsym file separation failed Please contact us at support@rollout.io" "xcode_alert=error")
-ERROR_dynamicFilesShouldBeRecompiled=("exit=10" "message=Methods with new signatures were detected by Rollout.io. The derived dynamic code was added to the project, but the project has to be rebuilt now" "xcode_alert=error")
+ERROR_dynamicFilesShouldBeRecompiled=("exit=10" "message=Rollout.io: Please rebuild the project. (Methods with new signatures were detected by Rollout.io. The derived dynamic code was added to the project, but the project has to be rebuilt now.)" "xcode_alert=error no_report=1")
 handle_error() { #{{{
   eval local error=('"${'$1'[@]}"')
   local details="$2"
   local exit=""
   local message=""
   local xcode_alert=""
+  local no_report=""
   for param in "${error[@]}"; do eval ${param%=*}=\"${param#*=}\"; done
 
   [ -z "$details" ] || message="$message: $details"
 
   [ -z "$xcode_alert" ] || echo "$xcode_alert: $message" 1>&2
-  "$LIB_DIR"/errors_reporter.rb "tweaker error" "$message"
+  [ -n "$no_report" ] || "$LIB_DIR"/errors_reporter.rb "tweaker error" "$message"
   [ -z "$exit" ] || exit $exit
 } #}}}
 

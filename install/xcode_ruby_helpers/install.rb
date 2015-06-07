@@ -25,7 +25,7 @@ files_to_add.each do |full_path|
   add_file_result = [add_file.add_file(full_path), add_file_result].max
 end
 
-base_dir = "#{File.dirname __FILE__}/../.."
+base_dir = File.dirname(File.dirname(File.dirname(File.absolute_path(__FILE__))))
 xcodeproj_configuration=`. '#{base_dir}/lib/versions' ; /bin/echo -n $xcodeproj_configuration`
 
 tweaker_d_flag = tweaker_phase_before_linking ? "-d" : ""
