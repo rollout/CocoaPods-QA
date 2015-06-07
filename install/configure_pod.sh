@@ -86,6 +86,8 @@ analytics  rm_exit_status $?
   "xcode_dir": "$xcode_dir",
   "app_key": "$app_key",
   "files_to_add": [
+    "Rollout-ios-SDK/auto_generated_code/RolloutDynamic_structs.h",
+    `seq -f '"Rollout-ios-SDK/auto_generated_code/RolloutDynamic_%02g.m",' 1 20`
     "Pods/Rollout.io/Rollout/RolloutDynamic.m"
   ],
   `[ -z "$tweaker_before_linking" ] || echo "\"tweaker_phase_before_linking\": 1,"`

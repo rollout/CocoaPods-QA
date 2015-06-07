@@ -36,4 +36,6 @@ OverrideClang.new(project).install("\${SRCROOT}/#{sdk_subdir}/lib")
 
 project.save()
 
+`"#{base_dir}"/lib/tweaker -c`
+
 exit add_file_result
