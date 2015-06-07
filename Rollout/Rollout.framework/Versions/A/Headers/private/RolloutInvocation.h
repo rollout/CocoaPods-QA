@@ -9,8 +9,6 @@
 #import <Foundation/Foundation.h>
 #import "RolloutTypeWrapper.h"
 
-typedef IMP *IMPPointer;
-
 @class RolloutActions;
 @class RolloutActionProducer;
 @class RolloutErrors;
@@ -18,6 +16,8 @@ typedef IMP *IMPPointer;
 @class RolloutTypeWrapperGeneratorFactory;
 
 @protocol RolloutErrors;
+@class RolloutDeviceProperties;
+@class RolloutConditionValuesFactory;
 #define ROLLOUT_TYPE_WITH_SIZE(s) __rollout_type_ ## s
 #define CREATE_ROLLOUT_TYPE_WITH_SIZE(s) typedef struct { unsigned char buff[s];} ROLLOUT_TYPE_WITH_SIZE(s);
 
@@ -35,12 +35,9 @@ typedef enum {
     RolloutInvocation_ForceMainThreadTypesCount
 } RolloutInvocation_ForceMainThreadType;
 
-extern  BOOL rollout_swizzleInstanceMethodAndStore(Class class, SEL original, IMP replacement, IMPPointer store) ;
-extern  BOOL rollout_swizzleClassMethodAndStore(Class class, SEL original, IMP replacement, IMPPointer store) ;
-
 @interface RolloutInvocation : NSObject
 
-- (id)initWithConfiguration:(NSDictionary *)configuration actionProducer:(RolloutActionProducer *)actionProducer rolloutErrors:(id<RolloutErrors>)rolloutErrors typeWrapperFactory:(RolloutTypeWrapperFactory *)typeWrapperFactory typeWrapperGeneratorFactory:(RolloutTypeWrapperGeneratorFactory *)typeWrapperGeneratorFactory;
+- (id)initWithConfiguration:(NSDictionary *)configuration actionProducer:(RolloutActionProducer *)actionProducer rolloutErrors:(id <RolloutErrors>)rolloutErrors typeWrapperFactory:(RolloutTypeWrapperFactory *)typeWrapperFactory typeWrapperGeneratorFactory:(RolloutTypeWrapperGeneratorFactory *)typeWrapperGeneratorFactory conditionValuesFactory:(RolloutConditionValuesFactory *)conditionValuesFactory;
 
 @property (nonatomic, readonly) NSDictionary *configuration;
 @property (nonatomic, readonly) RolloutActions *actions;

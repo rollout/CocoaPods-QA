@@ -1,73 +1,129 @@
 #!/bin/bash
-MODE="production"
+
+export ROLLOUT_TWEAKER="$0"
+
 LIB_DIR=$(dirname "$0")
 ROLLOUT_DIR=$(dirname "$LIB_DIR")
 CACHE_DIR="${ROLLOUT_DIR}/.cache"
-if [[ "$ROLLOUT_DIR" =~ /Pods/Rollout\.io$ ]]; then
+if [[ "$ROLLOUT_DIR" =~ Pods/Rollout\.io$ ]]; then
   STRUCTURES_DIR="${ROLLOUT_DIR}/../../Rollout-ios-SDK/.structures"
+  dynamic_files_path="${ROLLOUT_DIR}/../../Rollout-ios-SDK/auto_generated_code"
 else
   STRUCTURES_DIR="${ROLLOUT_DIR}/.structures"
+  dynamic_files_path="$ROLLOUT_DIR/auto_generated_code"
 fi
 STRUCTURES_PENDING_UPLOAD_DIR="${STRUCTURES_DIR}/pending_upload"
 STRUCTURES_ARCHIVE_DIR="${STRUCTURES_DIR}/archive"
-LOG_FILE="/tmp/tweaker_$$.log"
-ERR_FILE="/tmp/tweaker_$$.err"
 JSON_WITH_DATA="$CACHE_DIR/tweaker_functions.json"
 JSON_WITHOUT_DATA="$CACHE_DIR/tweaker_functions_stripped.json"
-TMP_FILE="/tmp/tweaker_tmp_$$"
 
-function extract_objc_function(){
-  local f="$1"
-  local append_to="$2"
-  local md5=$(md5 -q "$f")
-  local basename_f=${f##*/}
-  local cache_file="$CACHE_DIR/${NATIVE_ARCH}.$TARGETNAME.$md5.$basename_f"
-  if [ ! -s "$cache_file" ]; then
-    echo "Rollout: cache not found for $f ($md5)"
-    local flags=("-ObjC" "-arch" "$NATIVE_ARCH" "-include" "$GCC_PREFIX_HEADER" "-D" "ROLLOUT_TRANSPARENT" "-isysroot" "$SDKROOT")
-    if [[ $NATIVE_ARCH == "i386" ]] ; then 
-      flags+=("-mios-simulator-version-min=$IPHONEOS_DEPLOYMENT_TARGET")
-    fi
-    for i in $HEADER_SEARCH_PATHS $TARGET_TEMP_DIR/*.hmap ; do 
-      flags+=("-I" "$i")
-    done
-    for i in $LIBRARY_SEARCH_PATHS; do 
-      flags+=("-F" "$i")
-    done
-    for i in $OTHER_CFLAGS; do
-      flags+=($(echo $i|  tr \$'"' \$' '))
-    done
-    echo "Rollout running extract_objc_function with "${flags[@]}" $f" >> $LOG_FILE
-    local clang_exit_status=0
-    if [ $MODE == "debug" ] ; then 
-      xcrun clang -E "${flags[@]}" "$f" 1> /dev/null 2>>$ERR_FILE
-      clang_exit_status=$?
-    fi
-    if [  $clang_exit_status -eq 0 ] ;then 
-      echo "Success: xcrun clang -E "${flags[@]}" $f"  >> $LOG_FILE
-      "${LIB_DIR}/extract_objc_function" "${flags[@]}" "$f" >> "$cache_file"  || echo "Rollout: !!!! Problem extracting symbols from $f"
-    else
-      echo "Failed: xcrun clang -E "${flags[@]}" $f" | tee -a $ERR_FILE 
-    fi
-  fi
-  if [ -r "$cache_file" ] ;then 
-   cat "$cache_file" >> "$append_to"
-   if [[ "$basename_f" == "RolloutDynamic.m" ]] ; then
-      local rollout_install_sanity="$CACHE_DIR/sanity.$TARGETNAME.${NATIVE_ARCH}.log"
-      echo "FRAMEWORK_SEARCH_PATHS=$FRAMEWORK_SEARCH_PATHS" > "$rollout_install_sanity"
-      cat "$cache_file" >> "$rollout_install_sanity"
-   fi
-  else
-    echo "[]" >> "$append_to"
-  fi
-}
+ERROR_expectedLargerBinaryAfterRelinking=("message=Expected larger binary after relinking" "xcode_alert=warning")
+ERROR_expectedLargerBinaryAfterRerunningLipo=("message=Expected larger binary after rerunning lipo" "xcode_alert=warning")
+ERROR_extractSymbolsErrors=("message=ExtractSymbols generated errors")
+ERROR_cmdNotFound=("exit=5" "message=Missing .cmd file, do you have proper CC/LD settings? Missing file" "xcode_alert=error")
+ERROR_swiftDetected=("exit=6" "message=This Rollout.io version does not support Swift. Please contact us at support@rollout.io" "xcode_alert=error")
+ERROR_dsymOverrideError=("message=dSYM regenerating failed" "xcode_alert=warning")
+ERROR_couldNotReadInfoPlistValue=("exit=7" "message=Could not read info.plist value. Please contact us at support@rollout.io. Details" "xcode_alert=error")
+ERROR_dsymFileNotFound=("exit=8" "message=dsym file not found. Please contact us at support@rollout.io . Details" "xcode_alert=error")
+ERROR_couldNotSeparateDsymBundle=("exit=9" "message=dsym file separation failed Please contact us at support@rollout.io" "xcode_alert=error")
+ERROR_dynamicFilesShouldBeRecompiled=("exit=10" "message=Methods with new signatures were detected by Rollout.io. The derived dynamic code was added to the project, but the project has to be rebuilt now" "xcode_alert=error")
+handle_error() { #{{{
+  eval local error=('"${'$1'[@]}"')
+  local details="$2"
+  local exit=""
+  local message=""
+  local xcode_alert=""
+  for param in "${error[@]}"; do eval ${param%=*}=\"${param#*=}\"; done
+
+  [ -z "$details" ] || message="$message: $details"
+
+  [ -z "$xcode_alert" ] || echo "$xcode_alert: $message" 1>&2
+  "$LIB_DIR"/errors_reporter.rb "tweaker error" "$message"
+  [ -z "$exit" ] || exit $exit
+} #}}}
+
+temp_dir=`mktemp -d /tmp/rollout_tmp.XXX`
 
 get_info_plist_value() {
-  /usr/libexec/PlistBuddy -c "Print $1" "$INFOPLIST_FILE"
+  local infoplist_fullpath
+  [ ${INFOPLIST_FILE::1} == / ] && infoplist_fullpath="$INFOPLIST_FILE" || infoplist_fullpath="$SRCROOT/$INFOPLIST_FILE"
+  eval echo $(/usr/libexec/PlistBuddy -c "Print $1" "$infoplist_fullpath" | sed -e 's/\$(/\\$\\(/g' -e 's/)/\\)/g') ||
+    handle_error ERROR_couldNotReadInfoPlistValue "pwd: `pwd`, SRCROOT: \"$SRCROOT\", INFOPLIST_FILE: \"$INFOPLIST_FILE\", key: \"$1\""
 }
 
-unset app_key help exit disable_upload clean
-while getopts "k:hmc" option; do
+extract_cmd_data() { #{{{
+  local cmd_file="$1"
+  local cmd_var=$2
+  local cmd_args_array=$3
+
+  [ -f "$cmd_file" ] || {
+    handle_error ERROR_cmdNotFound "$cmd_file"
+  }
+
+
+  local arg_line
+
+  {
+    read $cmd_var
+    eval $cmd_args_array="()"
+    while read arg_line; do
+      eval $cmd_args_array[\${#$cmd_args_array[*]}]="'$arg_line'"
+    done
+  } < "$cmd_file"
+} #}}}
+
+get_opt_arg() { #{{{
+  local args_ref=$1
+  local option="$2"
+  
+  eval local args='("${'$args_ref'[@]}")'
+  local i
+
+  for ((i=0; i<${#args[*]}; i++)); do
+    [ "${args[$i]}" == $option ] || continue
+    echo "${args[$(($i + 1))]}"
+    return
+  done
+} #}}}
+
+clean_cache() { #{{{
+  echo "Cleaning the cache dir, and emptying the dynamic files"
+  rm -vfr "$CACHE_DIR"
+  mkdir -p "$dynamic_files_path"
+  for i in `seq -f %02g 1 20`; do
+    cat /dev/null > "$dynamic_files_path/RolloutDynamic_$i.m"
+  done
+  cat /dev/null > "$dynamic_files_path/RolloutDynamic_structs.h"
+} #}}}
+
+unset measurements_list #{{{
+measurements_locals() {
+  local start=RolloutTweakerMeasurements__$1__start
+  local finish=RolloutTweakerMeasurements__$1__finish
+  local duration=RolloutTweakerMeasurements__$1__duration
+  echo "start=$start finish=$finish duration=$duration"
+}
+
+begin_measurement() {
+  local `measurements_locals $1`
+  [ -z "${!start}" ] || echo "warning: overriding start measurement for $1"
+  local value=`ruby -e 'puts Time.now.to_f'`
+  eval $start=$value
+  measurements_list[${#measurements_list[*]}]=$1
+}
+
+end_measurement() {
+  local `measurements_locals $1`
+  [ -z "${!finish}" ] || echo "warning: overriding finish measurement for $1"
+  local value=`ruby -e 'puts Time.now.to_f'`
+  eval $finish=$value
+  eval $duration=$(echo ${!finish} - ${!start} | bc)
+} #}}}
+
+begin_measurement ALL
+
+unset app_key help exit disable_upload clean disable_locale_enforcement do_not_override_dsym
+while getopts "k:hmcld" option; do #{{{
   case $option in
     k)
       app_key=$OPTARG
@@ -81,13 +137,19 @@ while getopts "k:hmc" option; do
     c)
       clean=1
       ;;
+    l)
+      disable_locale_enforcement=1
+      ;;
+    d)
+      do_not_override_dsym=1
+      ;;
     *)
       exit=1
       ;;
   esac
-done
+done #}}}
 
-[ -z "$help" ] || {
+[ -z "$help" ] || { #{{{
   cat << EOF
 Usage:
 $0 <options>
@@ -95,76 +157,215 @@ $0 <options>
   -k <app key>           Rollout app key (required)
   -m                     disable uploading of structure json to Rollout server
   -c                     clean the cache directory
+  -l                     don't force UTF-8 locale
+  -d                     do not override dsym in the end
   -h                     this help message
 EOF
   exit
-}
+} #}}}
 
 [ -z "$exit" ] || exit 1
 
 [ -z "$clean" ] || {
-  echo Cleanning cache dir
-  rm -vfr "$CACHE_DIR"
+  clean_cache
   exit 0
 }
 
 [ -n "$app_key" ] || { echo "app_key argument is required" 1>&2; exit 2; }
 
-echo "Rollout pre compile script"
-is_first=true
-mkdir -p "$CACHE_DIR"
-echo -ne "[" > "$TMP_FILE"
-cat "$LIB_DIR"/static_json_part >> $TMP_FILE
-date  +"%s : start to read code" >> $LOG_FILE
-files_count=$("${LIB_DIR}/print_compiled_files.rb" "$PROJECT_FILE_PATH" "$TARGETNAME" | tr '\000' '\n'| wc -l | tr -d " ")
-counter=0
-while read -r -d $'\0' f ; do
-  echo "Rollout: extracting file $counter of $files_count"
-  counter=$((counter + 1))
-  $is_first ||  echo "," >> "$TMP_FILE"
-  is_first=false
-  date  +"  %s : $f" >> $LOG_FILE
-  extract_objc_function "$f"  "$TMP_FILE" 
-done < <("${LIB_DIR}/print_compiled_files.rb" "$PROJECT_FILE_PATH" "$TARGETNAME")
-date  +"%s : done reading code" >> $LOG_FILE
-echo -ne "]" >> "$TMP_FILE"
+[ -n "$disable_locale_enforcement" ] || export LC_ALL=UTF-8
 
-data_md5=$(cat "$TMP_FILE" | md5)
-preprocessor_debug=`( eval $GCC_PREPROCESSOR_DEFINITIONS; echo $DEBUG )`
-bundle_short_version=`get_info_plist_value CFBundleShortVersionString`
+echo "Rollout post compile script"
+
+xcodeproj_configuration=`(. "$LIB_DIR"/versions; echo $xcodeproj_configuration)`
+[ 0$ROLLOUT_lastXcodeprojConfiguration -ge $xcodeproj_configuration ] || {
+  cat << end_of_error_msg
+Rollout.io SDK version was not reconfigured, aborting...
+Our guess is that you changed Rollout.io version in your podfile, but have not reconfigured it yet.
+If this is correct, please run the following command:
+    "$ROLLOUT_DIR"/install/configure_pod.sh -k $app_key
+
+If our guess is incorrect or if the above didn't help, please contact us at support@rollout.io
+end_of_error_msg
+  exit 4
+}
+
+# Define ROLLOUT_allServicesInOneServer: #{{{
+case `(. "$LIB_DIR"/versions; echo $mode)` in
+  development)
+    export ROLLOUT_allServicesInOneServer=localhost:9000
+    ;;
+  qa)
+    export ROLLOUT_allServicesInOneServer=qa.rollout.io
+    ;;
+  production)
+    unset ROLLOUT_allServicesInOneServer
+    ;;
+esac #}}}
+ 
+export ROLLOUT_apiVersion=`(. "$LIB_DIR"/versions; echo $api)`
+export ROLLOUT_shortVersion=`get_info_plist_value CFBundleShortVersionString`
+export ROLLOUT_appKey=$app_key
+
+current_sdk_version=`(. "$LIB_DIR"/versions; echo $lib)`
+cache_sdk_version="$CACHE_DIR"/sdk_version
+preprocessor_debug=""; [ -z "$GCC_PREPROCESSOR_DEFINITIONS" ] || preprocessor_debug=`(eval typeset $GCC_PREPROCESSOR_DEFINITIONS; echo ${DEBUG+1})`
 bundle_version=`get_info_plist_value CFBundleVersion`
 rollout_build=`(. "$LIB_DIR"/versions; echo $build)`
+structure_version=`(. "$LIB_DIR"/versions; echo $structure)`
 
-"${LIB_DIR}/create_dynamic_swizzler.rb" "$TMP_FILE" > "${ROLLOUT_DIR}/Rollout/RolloutSwizzlerDynamic.include"
-if [ $MODE == "debug" ] ; then  
-  echo Log file in $LOG_FILE
+[ -d "$CACHE_DIR" -a -r "$cache_sdk_version" ] && [ "`cat "$cache_sdk_version"`" == "$current_sdk_version" ] || {
+  echo "Rollout: sdk version changed, cleaning cache..."
+  rm -rf "$CACHE_DIR"
+}
+mkdir -p "$CACHE_DIR"
+echo $current_sdk_version > "$cache_sdk_version"
+
+echo "Rollout: going to generate structure and code"
+
+dsym_file="`echo "$DWARF_DSYM_FOLDER_PATH/$DWARF_DSYM_FILE_NAME/Contents/Resources/DWARF/"*`"
+[ -f "$dsym_file" ] || handle_error ERROR_dsymFileNotFound "$dsym_file"
+dsyms_dir=$temp_dir/dsyms
+mkdir $dsyms_dir
+lipo_info=`lipo -info "$dsym_file"`
+lipo_archs=${lipo_info##*:}
+if echo "$lipo_info" | grep "Architectures in the fat file: " > /dev/null; then
+  for arch in $lipo_archs; do
+    lipo -thin $arch -output $dsyms_dir/$arch "$dsym_file" || handle_error ERROR_couldNotSeparateDsymBundle
+  done
 else
-  rm -f "$LOG_FILE"
+  arch=`echo $lipo_archs`
+  cp "$dsym_file" $dsyms_dir/$arch
 fi
+  
+for dsym_file in $dsyms_dir/*; do
+  arch=${dsym_file##*/}
+  arch_json=$temp_dir/arch_json.$arch
 
-create_json_file() {
+  begin_measurement extract_symbols_$arch
+  extract_symbols_errors=$({ "$LIB_DIR/ExtractSymbols" "$dsym_file" "$LIB_DIR"/static_json_part > $arch_json; } 2>&1 | while read line; do echo -n "$line\\n"; done)
+  [ -z "$extract_symbols_errors" ] || handle_error ERROR_extractSymbolsErrors "$extract_symbols_errors"
+  end_measurement extract_symbols_$arch
+done
+
+joined_json=$temp_dir/joined_json
+{
+  echo '['
+  comma_required=false
+  for arch_json in $temp_dir/arch_json.*; do
+    $comma_required && echo -n , || comma_required=true
+    echo -n "{\"arch\":\"${arch_json##*.}\",\"data\":"
+    cat $arch_json
+    echo -n "}"
+  done
+  echo ']'
+} > $joined_json
+
+data_md5=$(cat "$joined_json" | md5)
+
+create_json_file() { #{{{
   local json_file="$1"
   local include_data=$2
 
-  echo -ne '{' > "$json_file"
-  [ -z "$include_data" ] || {
-    echo -ne '"data":' >> "$json_file"
-    cat "$TMP_FILE" >> "$json_file"
-    echo -ne ',' >> "$json_file"
-  }
-  echo -ne "\"arch\":\"$NATIVE_ARCH\",\"md5\":\"$data_md5\",\"env_GCC_PREPROCESSOR_DEFINITIONS__DEBUG\":\"$preprocessor_debug\",\"rollout_appKey\":\"$app_key\",\"CFBundleShortVersionString\":\"$bundle_short_version\",\"CFBundleVersion\":\"$bundle_version\",\"rollout_build\":\"$rollout_build\"}" >> "$json_file"
-}
-
+  {
+    echo -n '{'
+    [ -z "$include_data" ] || {
+      echo -n '"data":'
+      cat $joined_json
+      echo -n ','
+    }
+    echo -n "\"md5\":\"$data_md5\",\"env_GCC_PREPROCESSOR_DEFINITIONS__DEBUG\":\"$preprocessor_debug\",\"rollout_appKey\":\"$app_key\",\"CFBundleShortVersionString\":\"$ROLLOUT_shortVersion\",\"CFBundleVersion\":\"$bundle_version\",\"rollout_build\":\"$rollout_build\",\"structure_version\":\"$structure_version\"}"
+  } > "$json_file"
+} #}}}
 create_json_file "$JSON_WITH_DATA" include_data
 create_json_file "$JSON_WITHOUT_DATA"
 
-rm -f "$TMP_FILE"
+begin_measurement create_dynamic_swizzler
+"${LIB_DIR}/create_dynamic_swizzler.rb" "$JSON_WITH_DATA" "$dynamic_files_path" > $temp_dir/create_dynamic_swizzler.out || exit 3
+end_measurement create_dynamic_swizzler
+unset changed_dynamics
+while read line; do
+  changed_dynamics[${#changed_dynamics[*]}]="$line"
+done < $temp_dir/create_dynamic_swizzler.out
 
-# Compress and archive/upload the JSON if needed
+if [ ${#changed_dynamics[*]} -gt 0 ]; then #{{{
+  unset linker_cmd_files archs
+  fail_the_build=false
+  for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
+    linker_cmd_file="${!linker_list_file%.*}.rollout_linker_cmd"
+    [ -f "$linker_cmd_file" ] || {
+      fail_the_build=true
+      break
+    }
+  done
+  
+  if $fail_the_build; then
+    rm -rf "$temp_dir"
+    handle_error ERROR_dynamicFilesShouldBeRecompiled
+  fi
+
+  for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
+    arch="${linker_list_file#LINK_FILE_LIST_normal_}"
+    linker_cmd_file="${!linker_list_file%.*}.rollout_linker_cmd"
+    extract_cmd_data "$linker_cmd_file" linker_cmd linker_args
+    rm "$linker_cmd_file"
+    linker_out_file=`get_opt_arg linker_args -o`
+  
+    begin_measurement rollout_dynamic_compilation_$arch
+    max_concurrent_jobs=`sysctl -n hw.ncpu`
+    for dynamic_short_name in "${changed_dynamics[@]}"; do
+      dynamic_o_file=`cat "${!linker_list_file}" | grep "$dynamic_short_name"`
+      dynamic_cmd_file="${dynamic_o_file%o}rollout_compile_cmd"
+      extract_cmd_data "$dynamic_cmd_file" dynamic_cc_cmd dynamic_cc_args
+  
+      while [ `jobs -p | wc -l` -ge $max_concurrent_jobs ]; do sleep 0.1; done
+      echo "Rollout: compiling $dynamic_short_name"
+      "$dynamic_cc_cmd" "${dynamic_cc_args[@]}" &
+    done
+    wait
+    end_measurement rollout_dynamic_compilation_$arch
+  
+    echo "Rollout: relinking ($arch) => $linker_out_file"
+    declare -i size_before=`stat -f\%z "$linker_out_file"`
+    begin_measurement linking_$arch
+    "$linker_cmd" "${linker_args[@]}"
+    end_measurement linking_$arch
+    declare -i size_after=`stat -f\%z "$linker_out_file"`
+    [ $size_before -lt $size_after ] || handle_error ERROR_expectedLargerBinaryAfterRelinking
+  done
+  
+  if [ `ls -1 $dsyms_dir | wc -l` == 1 ]; then
+    dsym_source_file="$linker_out_file"
+  else
+    echo "Rollout: running lipo"
+    lipo_cmd_file="$TARGET_BUILD_DIR"/rollout_lipo_cmd
+    extract_cmd_data "$lipo_cmd_file" lipo_cmd lipo_args
+    rm "$lipo_cmd_file"
+    lipo_out_file=`get_opt_arg lipo_args -output`
+    declare -i size_before=`stat -f\%z "$lipo_out_file"`
+    "$lipo_cmd" "${lipo_args[@]}"
+    declare -i size_after=`stat -f\%z "$lipo_out_file"`
+    [ $size_before -lt $size_after ] || handle_error ERROR_expectedLargerBinaryAfterRerunningLipo
+  
+    dsym_source_file="$lipo_out_file"
+  fi
+  
+  if [ -z "$do_not_override_dsym" -a "$DEBUG_INFORMATION_FORMAT" == "dwarf-with-dsym" ]; then
+    dsym_destination_dir="$DWARF_DSYM_FOLDER_PATH/$DWARF_DSYM_FILE_NAME"
+    echo "Regenerating dsym file (\"$dsym_source_file\" -> \"$dsym_destination_dir\")"
+    begin_measurement final_dsymutil
+    xcrun dsymutil "$dsym_source_file" -o "$dsym_destination_dir" || handle_error ERROR_dsymOverrideError
+    end_measurement final_dsymutil
+  fi
+  
+  rm -rf "$temp_dir"
+fi #}}}
+
+# Compress and archive/upload the JSON if needed #{{{
 unset do_not_archive_json
 [ -r  "${INSTALL_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}" ] || do_not_archive_json=1
 if [ -z "$do_not_archive_json" -o -z "$disable_upload" ]; then
-  named_gzipped_json=Rollout__structures__"$app_key"__"$NATIVE_ARCH"__"$bundle_version"__"$data_md5"__`date +"%Y-%m-%d_%H:%M:%S"`.json.gz
+  named_gzipped_json=Rollout__structures__"$app_key"__"$bundle_version"__"$data_md5"__`date +"%Y-%m-%d_%H:%M:%S"`.json.gz
   gzip -f -k "$JSON_WITH_DATA"
   gzipped_json="$JSON_WITH_DATA".gz
   
@@ -177,29 +378,29 @@ if [ -z "$do_not_archive_json" -o -z "$disable_upload" ]; then
     mkdir -p "$STRUCTURES_PENDING_UPLOAD_DIR"
     gzipped_json_for_uploading="$STRUCTURES_PENDING_UPLOAD_DIR"/$named_gzipped_json
 
-    case `(. "$LIB_DIR"/versions; echo $mode)` in
-      development)
-        export ROLLOUT_structureUploadingServer=localhost:9000
-	;;
-      qa)
-        export ROLLOUT_structureUploadingServer=qa.rollout.io
-	;;
-      production)
-        unset ROLLOUT_structureUploadingServer
-	;;
-    esac
-    
+   
     cp "$gzipped_json" "$gzipped_json_for_uploading"
     (
       "$LIB_DIR"/upload_structure.rb "$gzipped_json_for_uploading"
       rm "$gzipped_json_for_uploading"
     ) > /dev/null 2>&1 &
   fi
-fi
+fi #}}}
 
-# Copy JSON_WITHOUT_DATA:
+# Copy JSON_WITHOUT_DATA: #{{{
 cp -v "$JSON_WITHOUT_DATA"  "${CONFIGURATION_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/"
 if [ -r  "${INSTALL_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}" ]; then
   echo "Rollout: Installation mode, special copy" 
   cp -v "$JSON_WITHOUT_DATA"  "${INSTALL_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}"
-fi
+fi #}}}
+
+end_measurement ALL
+echo "Measurements results: "
+for measurement_title in ${measurements_list[*]}; do
+  prefix=RolloutTweakerMeasurements__${measurement_title}__
+  duration="${prefix}duration"
+  [ -n "${!duration}" ] || continue
+  start=${prefix}start
+  finish=${prefix}finish
+  echo "    ${measurement_title}: ${!duration}  (${!start} - ${!finish})"
+done

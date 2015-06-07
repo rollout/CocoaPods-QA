@@ -29,11 +29,14 @@ rollout_build=`(. "$BIN_DIR"/../lib/versions; echo $build)`
 
 shopt -s nullglob
 
-unset app_key help exit xcode_dir
-while getopts "p:k:h" option; do
+unset app_key help exit xcode_dir tweaker_before_linking
+while getopts "p:k:lh" option; do
   case $option in
     k)
       app_key=$OPTARG
+      ;;
+    l)
+      tweaker_before_linking=1
       ;;
     h)
       help=1
@@ -55,6 +58,7 @@ $0 <options>
   -k <app key>           Rollout app key (required)
   -p <.xcodeproj dir>    a path to the project directory (optional, for cases
                          in which the script can't locate it automatically)
+  -l                     set tweaker script phase before the linking phase
   -h                     this help message
 EOF
   exit
@@ -76,14 +80,21 @@ echo "Configuring project \"$xcode_dir\""
 
 rm -rf "$PROJECT_DIR"/Rollout-ios-SDK/{.cache,lib,install,Rollout}
 analytics  rm_exit_status $? 
-"$BIN_DIR"/remove_rollout_from_xcodeproj.rb "$xcode_dir"
 
-add_script="$BIN_DIR/addFile.rb"
+"$BIN_DIR"/xcode_ruby_helpers/install.rb << EOF
+{
+  "xcode_dir": "$xcode_dir",
+  "app_key": "$app_key",
+  "files_to_add": [
+    "Rollout-ios-SDK/auto_generated_code/RolloutDynamic_structs.h",
+    `seq -f '"Rollout-ios-SDK/auto_generated_code/RolloutDynamic_%02g.m",' 1 20`
+    "Pods/Rollout.io/Rollout/RolloutDynamic.m"
+  ],
+  `[ -z "$tweaker_before_linking" ] || echo "\"tweaker_phase_before_linking\": 1,"`
+  "sdk_subdir": "Pods/Rollout.io"
+}
+EOF
+exit_status=$?
 
-cd "$BASE_DIR" && "$add_script" "$xcode_dir"  Pods/Rollout.io/Rollout/RolloutDynamic.m
-add_file_exit_status=$?
-"$BIN_DIR/create_script.rb" "$xcode_dir" "Rollout Code analyzer" "\"\${SRCROOT}/Pods/Rollout.io/lib/tweaker\" -k $app_key"
-create_script_exit_status=$?
-exit_status=$(( $add_file_exit_status + $create_script_exit_status ))
-analytics  configure_pod_exit_status $exit_status 
-exit  $exit_status
+analytics configure_pod_exit_status $exit_status 
+exit $exit_status

@@ -10,12 +10,15 @@
 
 @protocol RolloutInvocationsListFactory;
 @class RolloutErrors;
+@class RolloutConfiguration;
 
 @protocol RolloutDynamic
-- (instancetype)initWithInvocationsListFactory:(id<RolloutInvocationsListFactory>)invocationsListFactory rolloutErrors:(RolloutErrors *)rolloutErrors;
-- (void) setup;
-- (void) onApplicationStarts;
+- (instancetype)initWithInvocationsListFactory:(id <RolloutInvocationsListFactory>)invocationsListFactory configuration:(RolloutConfiguration *)configuration;
 @end
 
-@interface RolloutDynamic : NSObject <RolloutDynamic>
+@interface RolloutDynamic : NSObject <RolloutDynamic> {
+    id<RolloutInvocationsListFactory> _invocationsListFactory;
+    RolloutConfiguration *_configuration;
+}
 @end
+

@@ -53,6 +53,9 @@ _RE(RolloutNetwork_unknownError)
 _RE(RolloutNetwork_timeout)
 _RE(RolloutNetwork_jsonParsing)
 _RE(RolloutNetwork_emptyResult)
+_RE(RolloutNetwork_exceptionInsideAsyncNetworkRequest)
+
+_RE(RolloutMethodSwizzler_swizzlingFailed)
 
 @protocol RolloutDeviceProperties;
 
@@ -76,3 +79,4 @@ FOUNDATION_EXPORT BOOL RolloutErrors_doNotThrowException;
 @end
 
 #undef _RE
+
