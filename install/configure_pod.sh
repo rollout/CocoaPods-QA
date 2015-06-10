@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export LC_ALL=UTF-8
+
 ERROR_canNotAutoDetectXcodeprojFile=(1 "Sorry, couldn't locate the .xcodeproj file automatically. Please specify it with the -p option")
 ERROR_noAppKeyProvided=(2 "Please specify the app key (use the -k switch)")
 ERROR_illegalOption=(3 "Please use -h for help")

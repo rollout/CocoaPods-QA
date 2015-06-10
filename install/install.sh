@@ -1,4 +1,7 @@
 #!/bin/bash
+
+export LC_ALL=UTF-8
+
 BIN_DIR="$(cd "$(dirname "$0")" && pwd )"
 BASE_DIR="$(dirname "$BIN_DIR")"
 PROJECT_DIR=$(dirname "$BASE_DIR")

@@ -26,7 +26,9 @@ ERROR_dsymOverrideError=("message=dSYM regenerating failed" "xcode_alert=warning
 ERROR_couldNotReadInfoPlistValue=("exit=7" "message=Could not read info.plist value. Please contact us at support@rollout.io. Details" "xcode_alert=error")
 ERROR_dsymFileNotFound=("exit=8" "message=dsym file not found. Please contact us at support@rollout.io . Details" "xcode_alert=error")
 ERROR_couldNotSeparateDsymBundle=("exit=9" "message=dsym file separation failed Please contact us at support@rollout.io" "xcode_alert=error")
-ERROR_dynamicFilesShouldBeRecompiled=("exit=10" "message=Rollout.io: Please rebuild the project. (Methods with new signatures were detected by Rollout.io. The derived dynamic code was added to the project, but the project has to be rebuilt now.)" "xcode_alert=error no_report=1")
+ERROR_dynamicFilesShouldBeRecompiled_error=("exit=10" "message=Rollout.io: Please rebuild the project. (Methods with new signatures were detected by Rollout.io. The derived dynamic code was added to the project, but the project has to be rebuilt now.)" "xcode_alert=error" "no_report=1")
+ERROR_dynamicFilesShouldBeRecompiled_warning=("message=Rollout.io: Please rebuild the project. (Methods with new signatures were detected by Rollout.io. The derived dynamic code was added to the project, but the project has to be rebuilt now.)" "xcode_alert=warning" "no_report=1")
+ERROR_lipoInfoFailed=("exit=11" "message=Could not parse 'lipo -info' output" "xcode_alert=error")
 handle_error() { #{{{
   eval local error=('"${'$1'[@]}"')
   local details="$2"
@@ -71,6 +73,13 @@ extract_cmd_data() { #{{{
       eval $cmd_args_array[\${#$cmd_args_array[*]}]="'$arg_line'"
     done
   } < "$cmd_file"
+} #}}}
+
+remove_linker_and_lipo_cmd_files() { #{{{
+  for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
+    rm -f "${!linker_list_file%.*}.rollout_linker_cmd"
+  done
+  rm -f "$TARGET_BUILD_DIR"/rollout_lipo_cmd
 } #}}}
 
 get_opt_arg() { #{{{
@@ -228,16 +237,19 @@ dsym_file="`echo "$DWARF_DSYM_FOLDER_PATH/$DWARF_DSYM_FILE_NAME/Contents/Resourc
 [ -f "$dsym_file" ] || handle_error ERROR_dsymFileNotFound "$dsym_file"
 dsyms_dir=$temp_dir/dsyms
 mkdir $dsyms_dir
-lipo_info=`lipo -info "$dsym_file"`
+lipo_info=`xcrun lipo -info "$dsym_file" | head -1`
 lipo_archs=${lipo_info##*:}
-if echo "$lipo_info" | grep "Architectures in the fat file: " > /dev/null; then
+if echo "$lipo_info" | grep "^Architectures in the fat file: " > /dev/null; then
   for arch in $lipo_archs; do
-    lipo -thin $arch -output $dsyms_dir/$arch "$dsym_file" || handle_error ERROR_couldNotSeparateDsymBundle
+    xcrun lipo -thin $arch -output $dsyms_dir/$arch "$dsym_file" || handle_error ERROR_couldNotSeparateDsymBundle
   done
-else
+elif echo "$lipo_info" | grep "^Non-fat file: " > /dev/null; then
   arch=`echo $lipo_archs`
   cp "$dsym_file" $dsyms_dir/$arch
+else
+  handle_error ERROR_lipoInfoFailed
 fi
+
   
 for dsym_file in $dsyms_dir/*; do
   arch=${dsym_file##*/}
@@ -302,64 +314,71 @@ if [ ${#changed_dynamics[*]} -gt 0 ]; then #{{{
   
   if $fail_the_build; then
     rm -rf "$temp_dir"
-    handle_error ERROR_dynamicFilesShouldBeRecompiled
-  fi
-
-  for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
-    arch="${linker_list_file#LINK_FILE_LIST_normal_}"
-    linker_cmd_file="${!linker_list_file%.*}.rollout_linker_cmd"
-    extract_cmd_data "$linker_cmd_file" linker_cmd linker_args
-    rm "$linker_cmd_file"
-    linker_out_file=`get_opt_arg linker_args -o`
-  
-    begin_measurement rollout_dynamic_compilation_$arch
-    max_concurrent_jobs=`sysctl -n hw.ncpu`
-    for dynamic_short_name in "${changed_dynamics[@]}"; do
-      dynamic_o_file=`cat "${!linker_list_file}" | grep "$dynamic_short_name"`
-      dynamic_cmd_file="${dynamic_o_file%o}rollout_compile_cmd"
-      extract_cmd_data "$dynamic_cmd_file" dynamic_cc_cmd dynamic_cc_args
-  
-      while [ `jobs -p | wc -l` -ge $max_concurrent_jobs ]; do sleep 0.1; done
-      echo "Rollout: compiling $dynamic_short_name"
-      "$dynamic_cc_cmd" "${dynamic_cc_args[@]}" &
-    done
-    wait
-    end_measurement rollout_dynamic_compilation_$arch
-  
-    echo "Rollout: relinking ($arch) => $linker_out_file"
-    declare -i size_before=`stat -f\%z "$linker_out_file"`
-    begin_measurement linking_$arch
-    "$linker_cmd" "${linker_args[@]}"
-    end_measurement linking_$arch
-    declare -i size_after=`stat -f\%z "$linker_out_file"`
-    [ $size_before -lt $size_after ] || handle_error ERROR_expectedLargerBinaryAfterRelinking
-  done
-  
-  if [ `ls -1 $dsyms_dir | wc -l` == 1 ]; then
-    dsym_source_file="$linker_out_file"
+    remove_linker_and_lipo_cmd_files
+    if [ "$ROLLOUT_MISSING_SIGNATURES_BEHAVIOUR" == warning -o \( "$CONFIGURATION" == Debug -a "$ROLLOUT_MISSING_SIGNATURES_BEHAVIOUR" != error \) ]; then
+      handle_error ERROR_dynamicFilesShouldBeRecompiled_warning
+    else
+      handle_error ERROR_dynamicFilesShouldBeRecompiled_error
+    fi
   else
-    echo "Rollout: running lipo"
-    lipo_cmd_file="$TARGET_BUILD_DIR"/rollout_lipo_cmd
-    extract_cmd_data "$lipo_cmd_file" lipo_cmd lipo_args
-    rm "$lipo_cmd_file"
-    lipo_out_file=`get_opt_arg lipo_args -output`
-    declare -i size_before=`stat -f\%z "$lipo_out_file"`
-    "$lipo_cmd" "${lipo_args[@]}"
-    declare -i size_after=`stat -f\%z "$lipo_out_file"`
-    [ $size_before -lt $size_after ] || handle_error ERROR_expectedLargerBinaryAfterRerunningLipo
-  
-    dsym_source_file="$lipo_out_file"
+    for linker_list_file in ${!LINK_FILE_LIST_normal_*}; do
+      arch="${linker_list_file#LINK_FILE_LIST_normal_}"
+      linker_cmd_file="${!linker_list_file%.*}.rollout_linker_cmd"
+      extract_cmd_data "$linker_cmd_file" linker_cmd linker_args
+      rm "$linker_cmd_file"
+      linker_out_file=`get_opt_arg linker_args -o`
+    
+      begin_measurement rollout_dynamic_compilation_$arch
+      max_concurrent_jobs=`sysctl -n hw.ncpu`
+      for dynamic_short_name in "${changed_dynamics[@]}"; do
+        dynamic_o_file=`cat "${!linker_list_file}" | grep "$dynamic_short_name"`
+        dynamic_cmd_file="${dynamic_o_file%o}rollout_compile_cmd"
+        extract_cmd_data "$dynamic_cmd_file" dynamic_cc_cmd dynamic_cc_args
+    
+        while [ `jobs -p | wc -l` -ge $max_concurrent_jobs ]; do sleep 0.1; done
+        echo "Rollout: compiling $dynamic_short_name"
+        "$dynamic_cc_cmd" "${dynamic_cc_args[@]}" &
+      done
+      wait
+      end_measurement rollout_dynamic_compilation_$arch
+    
+      echo "Rollout: relinking ($arch) => $linker_out_file"
+      declare -i size_before=`stat -f\%z "$linker_out_file"`
+      begin_measurement linking_$arch
+      "$linker_cmd" "${linker_args[@]}"
+      end_measurement linking_$arch
+      declare -i size_after=`stat -f\%z "$linker_out_file"`
+      [ $size_before -lt $size_after ] || handle_error ERROR_expectedLargerBinaryAfterRelinking
+    done
+    
+    if [ `ls -1 $dsyms_dir | wc -l` == 1 ]; then
+      dsym_source_file="$linker_out_file"
+    else
+      echo "Rollout: running lipo"
+      lipo_cmd_file="$TARGET_BUILD_DIR"/rollout_lipo_cmd
+      extract_cmd_data "$lipo_cmd_file" lipo_cmd lipo_args
+      rm "$lipo_cmd_file"
+      lipo_out_file=`get_opt_arg lipo_args -output`
+      declare -i size_before=`stat -f\%z "$lipo_out_file"`
+      "$lipo_cmd" "${lipo_args[@]}"
+      declare -i size_after=`stat -f\%z "$lipo_out_file"`
+      [ $size_before -lt $size_after ] || handle_error ERROR_expectedLargerBinaryAfterRerunningLipo
+    
+      dsym_source_file="$lipo_out_file"
+    fi
+    
+    if [ -z "$do_not_override_dsym" -a "$DEBUG_INFORMATION_FORMAT" == "dwarf-with-dsym" ]; then
+      dsym_destination_dir="$DWARF_DSYM_FOLDER_PATH/$DWARF_DSYM_FILE_NAME"
+      echo "Regenerating dsym file (\"$dsym_source_file\" -> \"$dsym_destination_dir\")"
+      begin_measurement final_dsymutil
+      xcrun dsymutil "$dsym_source_file" -o "$dsym_destination_dir" || handle_error ERROR_dsymOverrideError
+      end_measurement final_dsymutil
+    fi
+    
+    rm -rf "$temp_dir"
   fi
-  
-  if [ -z "$do_not_override_dsym" -a "$DEBUG_INFORMATION_FORMAT" == "dwarf-with-dsym" ]; then
-    dsym_destination_dir="$DWARF_DSYM_FOLDER_PATH/$DWARF_DSYM_FILE_NAME"
-    echo "Regenerating dsym file (\"$dsym_source_file\" -> \"$dsym_destination_dir\")"
-    begin_measurement final_dsymutil
-    xcrun dsymutil "$dsym_source_file" -o "$dsym_destination_dir" || handle_error ERROR_dsymOverrideError
-    end_measurement final_dsymutil
-  fi
-  
-  rm -rf "$temp_dir"
+else
+  remove_linker_and_lipo_cmd_files
 fi #}}}
 
 # Compress and archive/upload the JSON if needed #{{{
