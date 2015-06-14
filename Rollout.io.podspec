@@ -5,7 +5,7 @@ Pod::Spec.new do |s|
   s.summary      = "Hot patch critical bugs in production apps"
   s.description  = "Rollout.io is an SDK that gives developers control over their apps in production, including the ability to remotely fix or contain bugs and quality issues."
 
-  s.homepage     = "http://www.rollout.io/"
+  s.homepage     = "https://rollout.io/"
   s.license      = {
                       "type" => "Commercial",
 		      "text" => "See http://www.rollout.io/"
@@ -14,6 +14,7 @@ Pod::Spec.new do |s|
                       "Eyal Keren" => "eyal@rollout.io",
                       "Sergey Ilyevsky" => "sergey@rollout.io"
 		   }
+  s.documentation_url = "http://support.rollout.io/"
 
   s.requires_arc = true
 
