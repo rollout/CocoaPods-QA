@@ -179,7 +179,7 @@ def fix_type_issue(data) #{{{
   keep_types = [ "UShort","Char16","Char_U","Char16","Char32","Int128","UInt128","Bool","Float","Short","Long","WChar","ULong","Double","Int","Void","Char_S","UChar","SChar","LongLong","ULongLong","UInt","LongDouble"]
   case 
   when ["CGFloat", "BOOL"].include?(data["origin"])
-    return { :type => data["type"], :kind => data["kind"], :origin => data["origin"]}
+    return { :type => data["origin"], :kind => data["kind"], :origin => data["origin"]}
   when "ObjCObjectPointer" == data["kind"]
     return { :type => "id", :kind => data["kind"]}
   when "Pointer" == data["kind"]
