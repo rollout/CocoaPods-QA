@@ -189,6 +189,7 @@ def fix_type_issue(data) #{{{
   when "Enum" == data["kind"]
     return { :type => "__rollout_enum", :kind => data["kind"]}
   when "Record" == data["kind"]
+    return nil unless (/unsupported\$/ =~ data["struct_name"]).nil?
     return { :type =>  data["struct_name"], :origin => data["type"], :kind => data["kind"]}
   when keep_types.include?( data["kind"])
     return { :type => data["type"], :kind => data["kind"]}
