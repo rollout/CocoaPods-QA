@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require "JSON"
+require "json"
 require 'zlib'
 require 'set'
 require_relative "errors_reporter"

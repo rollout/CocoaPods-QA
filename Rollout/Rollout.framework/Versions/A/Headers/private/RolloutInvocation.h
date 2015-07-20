@@ -17,4 +17,6 @@
 
 - (RolloutTypeWrapper *)invokeWithMethodId:(RolloutMethodId *)methodId originalArguments:(NSArray*)originalArguments originalMethodWrapper:(RolloutTypeWrapper * (^)(NSArray *))originalMethodWrapper;
 
+@property (nonatomic) BOOL rolloutDisabled;
+
 @end
