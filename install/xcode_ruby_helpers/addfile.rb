@@ -64,6 +64,22 @@ class AddFile
     puts "not sure what to do with beside adding #{full_path}"
     return 0
   end
+
+  def add_weak_system_framework(framework)
+    group = @project.frameworks_group
+    unless ref = group.find_file_by_path(framework)
+      ref = group.new_file(framework, :sdk_root)
+    end
+    frameworks = @project.frameworks_group
+    @project.targets.select{|t| t.respond_to?("product_type") and t.product_type == "com.apple.product-type.application"}.each do |target| 
+      build_file = target.frameworks_build_phase.build_file(frameworks.files.find { |f| f.path == framework }) || target.frameworks_build_phase.add_file_reference(ref)
+      build_file.settings ||= {}
+      build_file.settings['ATTRIBUTES'] = ['Weak']
+      puts("")
+      puts(target.frameworks_build_phase.files.map {|f| f.file_ref.path})
+      puts("")
+    end
+  end
   
   def find_or_create_rollout
     folder = "Rollout"
