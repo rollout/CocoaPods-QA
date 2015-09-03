@@ -13,7 +13,7 @@ app_key = configuration["app_key"]
 files_to_add = configuration["files_to_add"]
 sdk_subdir = configuration["sdk_subdir"]
 tweaker_phase_before_linking = configuration["tweaker_phase_before_linking"]
-weak_system_frameworks = configuration["weak_system_frameworks"]
+weak_system_frameworks = configuration["weak_system_frameworks"] || []
 
 project = Xcodeproj::Project.new(xcode_dir)
 project.initialize_from_file
@@ -25,10 +25,8 @@ add_file_result = 0
 files_to_add.each do |full_path|
   add_file_result = [add_file.add_file(full_path), add_file_result].max
 end
-if ! weak_system_frameworks.nil?
-  weak_system_frameworks.each do |framework|
-    add_file.add_weak_system_framework(framework)
-  end
+weak_system_frameworks.each do |framework|
+  add_file.add_weak_system_framework(framework)
 end
 
 base_dir = File.dirname(File.dirname(File.dirname(File.absolute_path(__FILE__))))
