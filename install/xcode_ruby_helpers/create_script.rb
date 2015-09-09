@@ -26,6 +26,8 @@ class CreateScript
       	  ].max
         elsif position == "beginning"
           compile_index = 0
+        else
+          raise "Unknown position '#{position}'"
       	end
         build_phases.insert(compile_index + 1, script_build_phase) unless compile_index.nil?
       end
