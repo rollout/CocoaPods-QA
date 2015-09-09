@@ -229,14 +229,7 @@ bundle_version=`get_info_plist_value CFBundleVersion`
 rollout_build=`(. "$LIB_DIR"/versions; echo $build)`
 structure_version=`(. "$LIB_DIR"/versions; echo $structure)`
 
-sdk_version_changed=false
-[ -d "$CACHE_DIR" -a -r "$cache_sdk_version" ] && [ "`cat "$cache_sdk_version"`" == "$current_sdk_version" ] || {
-  echo "Rollout: sdk version changed, cleaning cache..."
-  clean_cache
-  sdk_version_changed=true
-}
-mkdir -p "$CACHE_DIR"
-echo $current_sdk_version > "$cache_sdk_version"
+. "$CACHE_DIR"/tweaker.env
 
 echo "Rollout: going to generate structure and code"
 
@@ -268,7 +261,6 @@ else
   handle_error ERROR_lipoInfoFailed
 fi
 
-  
 for dsym_file in $dsyms_dir/*; do
   arch=${dsym_file##*/}
   arch_json=$temp_dir/arch_json.$arch
