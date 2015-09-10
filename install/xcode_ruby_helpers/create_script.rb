@@ -18,18 +18,18 @@ class CreateScript
         script_build_phase.name = title
         script_build_phase.shell_script = content
       	if position == "before_linking"
-          compile_index = build_phases.find_index { |b| b.display_name == "SourcesBuildPhase" }
+          pre_index = build_phases.find_index { |b| b.display_name == "SourcesBuildPhase" }
       	elsif position == "end"
-          compile_index = [
+          pre_index = [
       	    build_phases.find_index { |b| b.display_name == "ResourcesBuildPhase" },
       	    build_phases.find_index { |b| b.display_name == "FrameworksBuildPhase" }
       	  ].max
         elsif position == "beginning"
-          compile_index = 0
+          pre_index = -1
         else
           raise "Unknown position '#{position}'"
       	end
-        build_phases.insert(compile_index + 1, script_build_phase) unless compile_index.nil?
+        build_phases.insert(pre_index + 1, script_build_phase) unless pre_index.nil?
       end
     end
   end
