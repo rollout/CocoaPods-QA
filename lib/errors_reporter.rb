@@ -15,9 +15,7 @@ module ErrorsReporter
   def self.report_error(action, details)
     server = ENV["ROLLOUT_allServicesInOneServer"]
     if server.nil?
-        server = "http://error.rollout.io"
-    else
-        server = server.gsub(/^https:\/\//, "http://")
+        server = "https://error.rollout.io"
     end
 
     app_key = ENV["ROLLOUT_appKey"]; app_key = "unknown_key" if app_key.nil?
