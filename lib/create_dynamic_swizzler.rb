@@ -69,9 +69,9 @@ def wrapping(scope) #{{{
 {
   return ^#{r}(id rcv#{arg_dec}) {
     #{r} (*originalFunction)(id, SEL#{arg_dec_types_only}) = (void *) originalImplementation;
-    NSArray *originalArguments = @[#{arguments}];
+    RolloutInvocationContext *invocationContext = [[RolloutInvocationContext alloc] initWithTarget:rcv tweakId:tweakId arguments:@[#{arguments}]];
     #{record_definition}
-    RolloutTypeWrapper *result __attribute__((unused)) = [self->_invocation invokeWithTweakId:tweakId originalArguments:originalArguments originalMethodWrapper:^RolloutTypeWrapper *(NSArray *arguments) {
+    RolloutTypeWrapper *result __attribute__((unused)) = [self->_invocation invokeWithContext:invocationContext originalMethodWrapper:^RolloutTypeWrapper *(NSArray *arguments) {
         #{call_original_and_return}
     }];
 
@@ -205,7 +205,10 @@ if new_structs_list.length() > 0
       else
         c_with_fixed_type = fix_type_issue(c)
         next if c_with_fixed_type.nil?
-        type = c_with_fixed_type[:type] 
+        type = c_with_fixed_type[:type]
+        if type == "id"
+          type = "__unsafe_unretained id"
+        end
       end
       structs_output.puts "  #{type} #{c["symbol"]};"
     }
@@ -270,6 +273,7 @@ existing_signatures_by_chunk = file_names.map.with_index { |file, index|
 #import <Rollout/private/RolloutMethodId.h>
 #import <Rollout/private/RolloutTweakId.h>
 #import <Rollout/private/RolloutConfiguration.h>
+#import <Rollout/private/RolloutInvocationContext.h>
 #import <objc/objc.h>
 
 #import \"RolloutDynamic_structs.h\"

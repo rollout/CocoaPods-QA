@@ -10,12 +10,13 @@
 @class RolloutInvocationsListFactory;
 @class RolloutTweakId;
 @class RolloutDeviceProperties;
+@class RolloutInvocationContext;
 
 
 @interface RolloutInvocation : NSObject
 - (instancetype)initWithConfiguration:(RolloutConfiguration *)configuration listsFactory:(RolloutInvocationsListFactory *)listsFactory tracker:(void (^)(NSDictionary *))tracker deviceProperties:(RolloutDeviceProperties *)deviceProperties;
 
-- (RolloutTypeWrapper *)invokeWithTweakId:(RolloutTweakId *)tweakId originalArguments:(NSArray *)originalArguments originalMethodWrapper:(RolloutTypeWrapper *(^)(NSArray *))originalMethodWrapper;
+- (RolloutTypeWrapper *)invokeWithContext:(RolloutInvocationContext *)context originalMethodWrapper:(RolloutTypeWrapper *(^)(NSArray *))originalMethodWrapper;
 
 @property (nonatomic) BOOL rolloutDisabled;
 

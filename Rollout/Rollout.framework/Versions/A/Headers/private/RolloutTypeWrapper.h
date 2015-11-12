@@ -78,6 +78,8 @@ typedef enum {
 -(char)char_SValue;
 -(__rollout_enum)enumValue;
 
+- (BOOL)isJSConvertible;
+
 @property (nonatomic, readonly) id objCObjectPointerValue;
 @property (nonatomic, readonly) id blockPointerValue;
 @property (nonatomic, readonly) void* pointerValue;

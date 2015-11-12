@@ -57,6 +57,10 @@ _RE(RolloutNetwork_signatureWasNotVerified)
 
 _RE(RolloutMethodSwizzler_swizzlingFailed)
 
+_RE(RolloutDynamicMethodCaller_unsupported)
+_RE(RolloutDynamicMethodCaller_interfaceCreationFailed)
+_RE(RolloutDynamicMethodCaller_unexpectedEncoding)
+
 @protocol RolloutDeviceProperties;
 
 #ifdef DEBUG
