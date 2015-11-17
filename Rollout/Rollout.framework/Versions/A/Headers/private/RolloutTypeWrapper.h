@@ -55,6 +55,7 @@ typedef enum {
 
 @property (nonatomic, readonly) RolloutType type;
 
+-(NSNumber *)numberValue;
 -(int)intValue;
 -(unsigned short)uShortValue;
 -(int)int128Value;
@@ -85,8 +86,6 @@ typedef enum {
 @property (nonatomic, readonly) void* pointerValue;
 @property (nonatomic, readonly) void* recordPointer;
 @property (nonatomic, readonly) size_t recordSize;
-
-- (id)jsObject;
 
 @end
 
