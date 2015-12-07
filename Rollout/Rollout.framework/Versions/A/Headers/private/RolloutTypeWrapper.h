@@ -79,7 +79,9 @@ typedef enum {
 -(char)char_SValue;
 -(__rollout_enum)enumValue;
 
-- (BOOL)isJSConvertible;
+-(BOOL)isJSConvertible;
+-(NSString*) valueDescription;
+
 
 @property (nonatomic, readonly) id objCObjectPointerValue;
 @property (nonatomic, readonly) id blockPointerValue;
