@@ -3,7 +3,6 @@
 export ROLLOUT_TWEAKER="$0"
 export PATH=/usr/bin:/bin:"$PATH"
 
-
 LIB_DIR=$(dirname "$0")
 ROLLOUT_DIR=$(dirname "$LIB_DIR")
 CACHE_DIR="${ROLLOUT_DIR}/.cache"
@@ -14,8 +13,7 @@ else
   STRUCTURES_DIR="${ROLLOUT_DIR}/.structures"
   dynamic_files_path="$ROLLOUT_DIR/auto_generated_code"
 fi
-STRUCTURES_PENDING_UPLOAD_DIR="${STRUCTURES_DIR}/pending_upload"
-STRUCTURES_ARCHIVE_DIR="${STRUCTURES_DIR}/archive"
+PENDING_UPLOAD_DIR="${CACHE_DIR}/pending_upload"
 JSON_WITH_DATA="$CACHE_DIR/tweaker_functions.json"
 JSON_WITHOUT_DATA="$CACHE_DIR/tweaker_functions_stripped.json"
 
@@ -247,6 +245,10 @@ fi
 
 [ -f "$dsym_file" ] || handle_error ERROR_couldNotSeparateDsymBundle
 
+# Preparing dsym for later uploading:
+cached_dsym="$CACHE_DIR"/dsym
+cp "$dsym_file" "$cached_dsym"
+
 dsyms_dir=$temp_dir/dsyms
 mkdir $dsyms_dir
 lipo_info=`xcrun lipo -info "$dsym_file" | head -1`
@@ -392,31 +394,15 @@ else
   remove_linker_and_lipo_cmd_files
 fi #}}}
 
-# Compress and archive/upload the JSON if needed #{{{
-unset do_not_archive_json
-[ -r  "${INSTALL_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}" ] || do_not_archive_json=1
-if [ -z "$do_not_archive_json" -o -z "$disable_upload" ]; then
-  named_gzipped_json=Rollout__structures__"$app_key"__"$bundle_version"__"$data_md5"__`date +"%Y-%m-%d_%H:%M:%S"`.json.gz
-  gzip -f -k "$JSON_WITH_DATA"
-  gzipped_json="$JSON_WITH_DATA".gz
-  
-  if [ -z "$do_not_archive_json" ]; then
-    mkdir -p "$STRUCTURES_ARCHIVE_DIR"
-    cp "$gzipped_json" "$STRUCTURES_ARCHIVE_DIR"/$named_gzipped_json
-  fi
-
-  if [ -z "$disable_upload" ]; then
-    mkdir -p "$STRUCTURES_PENDING_UPLOAD_DIR"
-    gzipped_json_for_uploading="$STRUCTURES_PENDING_UPLOAD_DIR"/$named_gzipped_json
-
-   
-    cp "$gzipped_json" "$gzipped_json_for_uploading"
-    (
-      "$LIB_DIR"/upload_structure.rb "$gzipped_json_for_uploading"
-      rm "$gzipped_json_for_uploading"
-    ) > /dev/null 2>&1 &
-  fi
-fi #}}}
+if [ -z "$disable_upload" ]; then
+  mkdir -p "$PENDING_UPLOAD_DIR"
+  named_gzipped_dsym="$PENDING_UPLOAD_DIR"/dsym__"$app_key"__"$bundle_version"__`date +"%Y-%m-%d_%H:%M:%S"`.dsym.gz
+  gzip -c "$cached_dsym" > "$named_gzipped_dsym"
+  (
+    "$LIB_DIR"/upload_dsym -k $app_key -m $data_md5 -d "$named_gzipped_dsym"
+    rm "$named_gzipped_dsym"
+  ) > /dev/null 2>&1 &
+fi
 
 # Copy JSON_WITHOUT_DATA: #{{{
 cp -v "$JSON_WITHOUT_DATA"  "${CONFIGURATION_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/"
