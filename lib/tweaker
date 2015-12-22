@@ -3,7 +3,6 @@
 export ROLLOUT_TWEAKER="$0"
 export PATH=/usr/bin:/bin:"$PATH"
 
-
 LIB_DIR=$(dirname "$0")
 ROLLOUT_DIR=$(dirname "$LIB_DIR")
 CACHE_DIR="${ROLLOUT_DIR}/.cache"
@@ -14,14 +13,13 @@ else
   STRUCTURES_DIR="${ROLLOUT_DIR}/.structures"
   dynamic_files_path="$ROLLOUT_DIR/auto_generated_code"
 fi
-STRUCTURES_PENDING_UPLOAD_DIR="${STRUCTURES_DIR}/pending_upload"
-STRUCTURES_ARCHIVE_DIR="${STRUCTURES_DIR}/archive"
+PENDING_UPLOAD_DIR="${CACHE_DIR}/pending_upload"
 JSON_WITH_DATA="$CACHE_DIR/tweaker_functions.json"
 JSON_WITHOUT_DATA="$CACHE_DIR/tweaker_functions_stripped.json"
 
 ERROR_expectedLargerBinaryAfterRelinking=("message=Expected larger binary after relinking" "xcode_alert=warning")
 ERROR_expectedLargerBinaryAfterRerunningLipo=("message=Expected larger binary after rerunning lipo" "xcode_alert=warning")
-ERROR_extractSymbolsErrors=("message=ExtractSymbols generated errors")
+ERROR_createDynamicSwizzlerFailed=("exit=3" "message=create_dynamic_swizzler failed" "xcode_alert=error")
 ERROR_cmdNotFound=("exit=5" "message=Missing .cmd file, do you have proper CC/LD settings? Missing file" "xcode_alert=error")
 ERROR_swiftDetected=("exit=6" "message=This Rollout.io version does not support Swift. Please contact us at support@rollout.io" "xcode_alert=error")
 ERROR_dsymOverrideError=("message=dSYM regenerating failed" "xcode_alert=warning")
@@ -31,6 +29,7 @@ ERROR_dynamicFilesShouldBeRecompiled_error=("exit=10" "message=Rollout.io: Pleas
 ERROR_dynamicFilesShouldBeRecompiled_warning=("message=Rollout.io: Please rebuild the project. (Methods with new signatures were detected by Rollout.io. The derived dynamic code was added to the project, but the project has to be rebuilt now.)" "xcode_alert=warning" "no_report=1")
 ERROR_lipoInfoFailed=("exit=11" "message=Could not parse 'lipo -info' output" "xcode_alert=error")
 ERROR_couldNotSeparateDsymBundle=("exit=12" "message=Missing dSYM. Please contact us at support@rollout.io" "xcode_alert=error")
+ERROR_extractSymbolsErrors=("exit=13" "message=ExtractSymbols generated errors")
 handle_error() { #{{{
   eval local error=('"${'$1'[@]}"')
   local details="$2"
@@ -138,8 +137,8 @@ end_measurement() {
 
 begin_measurement ALL
 
-unset app_key help exit disable_upload clean disable_locale_enforcement do_not_override_dsym
-while getopts "k:hmcld" option; do #{{{
+unset app_key help exit disable_upload clean disable_locale_enforcement do_not_override_dsym silent_some_warnings
+while getopts "k:hmclds" option; do #{{{
   case $option in
     k)
       app_key=$OPTARG
@@ -159,6 +158,9 @@ while getopts "k:hmcld" option; do #{{{
     d)
       do_not_override_dsym=1
       ;;
+    s)
+      silent_some_warnings=1
+      ;;
     *)
       exit=1
       ;;
@@ -175,6 +177,7 @@ $0 <options>
   -c                     clean the cache directory
   -l                     don't force UTF-8 locale
   -d                     do not override dsym in the end
+  -s                     silent some warnings
   -h                     this help message
 EOF
   exit
@@ -247,6 +250,10 @@ fi
 
 [ -f "$dsym_file" ] || handle_error ERROR_couldNotSeparateDsymBundle
 
+# Preparing dsym for later uploading:
+cached_dsym="$CACHE_DIR"/dsym
+cp "$dsym_file" "$cached_dsym"
+
 dsyms_dir=$temp_dir/dsyms
 mkdir $dsyms_dir
 lipo_info=`xcrun lipo -info "$dsym_file" | head -1`
@@ -267,8 +274,9 @@ for dsym_file in $dsyms_dir/*; do
   arch_json=$temp_dir/arch_json.$arch
 
   begin_measurement extract_symbols_$arch
-  extract_symbols_errors=$({ "$LIB_DIR/ExtractSymbols" "$dsym_file" "$LIB_DIR"/static_json_part > $arch_json; } 2>&1 | while read line; do echo -n "$line\\n"; done)
-  [ -z "$extract_symbols_errors" ] || handle_error ERROR_extractSymbolsErrors "$extract_symbols_errors"
+  extract_symbols_errors=$({ "$LIB_DIR/ExtractSymbols" "$dsym_file" "$LIB_DIR"/static_json_part > $arch_json; } 2>&1 | while read line; do echo -n "$line\\n"; done; exit ${PIPESTATUS[0]}) &&
+    [ -z "$extract_symbols_errors" ] ||
+    handle_error ERROR_extractSymbolsErrors "$extract_symbols_errors"
   end_measurement extract_symbols_$arch
 done
 
@@ -305,7 +313,13 @@ create_json_file "$JSON_WITH_DATA" include_data
 create_json_file "$JSON_WITHOUT_DATA"
 
 begin_measurement create_dynamic_swizzler
-"${LIB_DIR}/create_dynamic_swizzler.rb" "$JSON_WITH_DATA" "$dynamic_files_path" > $temp_dir/create_dynamic_swizzler.out || exit 3
+if [ -z "$silent_some_warnings" ]; then
+  "${LIB_DIR}/create_dynamic_swizzler.rb" "$JSON_WITH_DATA" "$dynamic_files_path" > $temp_dir/create_dynamic_swizzler.out ||
+    handle_error ERROR_createDynamicSwizzlerFailed "json: '$JSON_WITH_DATA', dynamic_files_path: '$dynamic_files_path'"
+else
+  "${LIB_DIR}/create_dynamic_swizzler.rb" "$JSON_WITH_DATA" "$dynamic_files_path" > $temp_dir/create_dynamic_swizzler.out 2>/dev/null ||
+    handle_error ERROR_createDynamicSwizzlerFailed "json: '$JSON_WITH_DATA', dynamic_files_path: '$dynamic_files_path'"
+fi
 end_measurement create_dynamic_swizzler
 unset changed_dynamics
 while read line; do
@@ -392,31 +406,15 @@ else
   remove_linker_and_lipo_cmd_files
 fi #}}}
 
-# Compress and archive/upload the JSON if needed #{{{
-unset do_not_archive_json
-[ -r  "${INSTALL_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}" ] || do_not_archive_json=1
-if [ -z "$do_not_archive_json" -o -z "$disable_upload" ]; then
-  named_gzipped_json=Rollout__structures__"$app_key"__"$bundle_version"__"$data_md5"__`date +"%Y-%m-%d_%H:%M:%S"`.json.gz
-  gzip -f -k "$JSON_WITH_DATA"
-  gzipped_json="$JSON_WITH_DATA".gz
-  
-  if [ -z "$do_not_archive_json" ]; then
-    mkdir -p "$STRUCTURES_ARCHIVE_DIR"
-    cp "$gzipped_json" "$STRUCTURES_ARCHIVE_DIR"/$named_gzipped_json
-  fi
-
-  if [ -z "$disable_upload" ]; then
-    mkdir -p "$STRUCTURES_PENDING_UPLOAD_DIR"
-    gzipped_json_for_uploading="$STRUCTURES_PENDING_UPLOAD_DIR"/$named_gzipped_json
-
-   
-    cp "$gzipped_json" "$gzipped_json_for_uploading"
-    (
-      "$LIB_DIR"/upload_structure.rb "$gzipped_json_for_uploading"
-      rm "$gzipped_json_for_uploading"
-    ) > /dev/null 2>&1 &
-  fi
-fi #}}}
+if [ -z "$disable_upload" ]; then
+  mkdir -p "$PENDING_UPLOAD_DIR"
+  named_dsym="$PENDING_UPLOAD_DIR"/dsym__"$app_key"__"$bundle_version"__`date +"%Y-%m-%d_%H:%M:%S"`.dsym
+  cp "$cached_dsym" "$named_dsym"
+  (
+    "$LIB_DIR"/upload_dsym -k $app_key -m $data_md5 -d "$named_dsym"
+    rm "$named_dsym"
+  ) > /dev/null 2>&1 &
+fi
 
 # Copy JSON_WITHOUT_DATA: #{{{
 cp -v "$JSON_WITHOUT_DATA"  "${CONFIGURATION_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/"
