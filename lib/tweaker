@@ -42,7 +42,7 @@ handle_error() { #{{{
   [ -z "$details" ] || message="$message: $details"
 
   [ -z "$xcode_alert" ] || echo "$xcode_alert: $message" 1>&2
-  [ -n "$no_report" ] || "$LIB_DIR"/errors_reporter.rb "tweaker error" "$message"
+  [ -n "$no_report" ] || echo "tweaker error:" "$message" 1>&2
   [ -z "$exit" ] || exit $exit
 } #}}}
 
@@ -407,13 +407,20 @@ else
 fi #}}}
 
 if [ -z "$disable_upload" ]; then
+  echo "Will upload dsym"
   mkdir -p "$PENDING_UPLOAD_DIR"
   named_dsym="$PENDING_UPLOAD_DIR"/dsym__"$app_key"__"$bundle_version"__`date +"%Y-%m-%d_%H:%M:%S"`.dsym
   cp "$cached_dsym" "$named_dsym"
+  dsym_session_id=$RANDOM
+  echo "Going to upload the dsym in the background. Session id: $dsym_session_id, dsym path:  \"$named_dsym\""
   (
+    echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $dsym_session_id started (-k $app_key -m $data_md5 -d \"$named_dsym\")"
     "$LIB_DIR"/upload_dsym -k $app_key -m $data_md5 -d "$named_dsym"
     rm "$named_dsym"
-  ) > /dev/null 2>&1 &
+    echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $dsym_session_id finished"
+  ) >> "$CACHE_DIR"/upload_dsym.log 2>&1 &
+else
+  echo "Dsym uploading disabled"
 fi
 
 # Copy JSON_WITHOUT_DATA: #{{{

@@ -3,7 +3,6 @@
 require "json"
 require 'zlib'
 require 'set'
-require_relative "errors_reporter"
 
 if ARGV.length != 2
   STDERR.puts "Usage:\n$0: <input_json> <output_chunks_path>"
@@ -111,7 +110,7 @@ def fix_type_issue(data) #{{{
   when "unsupported" == data["kind"]
     return nil
   else
-    ErrorsReporter.report_error("Unknown kind in fix_type_issue", data)
+    STDERR.puts("create_dynamic_swizzler.rb warning: Unknown kind in fix_type_issue: #{data}")
     return nil
   end
 end #}}}
@@ -244,11 +243,7 @@ methods.each { |m|
 
   if producer_signatures_hash.has_key? producer_signature
     if false and signature_data != producer_signatures_hash[producer_signature]
-      ErrorsReporter.report_error("Different method objects share the same signature", {
-        :signature => producer_signature,
-        :objectA => producer_signatures_hash[producer_signature],
-        :objectB => signature_data
-      })
+      STDERR.puts("create_dynamic_swizzler warning: Different method objects share the same signature: signature '#{producer_signature}', objectA: '#{producer_signatures_hash[producer_signature]}', objectB: '#{signature_data}'")
     end
     next
   end

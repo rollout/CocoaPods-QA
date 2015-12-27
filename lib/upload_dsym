@@ -54,4 +54,4 @@ gzip -c "$dsym_file" > "$gzipped_dsym" || { echo "Could not gzip dsym \"$gzipped
 server="$ROLLOUT_allServicesInOneServer"
 [ -n "$ROLLOUT_allServicesInOneServer" ] || server="https://upload.rollout.io"
 
-curl --location --post301 --post302 -F dsym=@"$gzipped_dsym" "${server}/api/dsym/$rollout_key?rollout_key=$rollout_key&md5=$structure_md5&rollout_build=$rollout_build"
+curl -sS --location --post301 --post302 -F dsym=@"$gzipped_dsym" "${server}/api/dsym/$rollout_key?rollout_key=$rollout_key&md5=$structure_md5&rollout_build=$rollout_build"
