@@ -61,6 +61,10 @@ _RE(RolloutDynamicMethodCaller_unsupported)
 _RE(RolloutDynamicMethodCaller_interfaceCreationFailed)
 _RE(RolloutDynamicMethodCaller_unexpectedEncoding)
 
+_RE(RolloutJSBoxFactory_couldNotCreateJSBoxFromEncodedValue)
+
+_RE(RolloutDynamicMethodCaller_methodNotFound)
+
 @protocol RolloutDeviceProperties;
 
 #ifdef DEBUG
