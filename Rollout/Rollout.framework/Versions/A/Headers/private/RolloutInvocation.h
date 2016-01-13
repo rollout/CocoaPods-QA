@@ -14,7 +14,7 @@
 
 
 @interface RolloutInvocation : NSObject
-- (instancetype)initWithConfiguration:(RolloutConfiguration *)configuration listsFactory:(RolloutInvocationsListFactory *)listsFactory tracker:(void (^)(NSDictionary *))tracker deviceProperties:(RolloutDeviceProperties *)deviceProperties;
+- (instancetype)initWithConfiguration:(RolloutConfiguration *)configuration listsFactory:(RolloutInvocationsListFactory *)listsFactory deviceProperties:(RolloutDeviceProperties *)deviceProperties;
 
 - (RolloutTypeWrapper *)invokeWithContext:(RolloutInvocationContext *)context originalMethodWrapper:(RolloutTypeWrapper *(^)(NSArray *))originalMethodWrapper;
 
