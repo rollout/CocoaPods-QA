@@ -265,12 +265,12 @@ else
   handle_error ERROR_lipoInfoFailed
 fi
 
-for dsym_file in $dsyms_dir/*; do
-  arch=${dsym_file##*/}
+for thin_dsym_file in $dsyms_dir/*; do
+  arch=${thin_dsym_file##*/}
   arch_json=$temp_dir/arch_json.$arch
 
   begin_measurement extract_symbols_$arch
-  extract_symbols_errors=$({ "$LIB_DIR/ExtractSymbols" "$dsym_file" "$LIB_DIR"/static_json_part > $arch_json; } 2>&1 | while read line; do echo -n "$line\\n"; done; exit ${PIPESTATUS[0]}) &&
+  extract_symbols_errors=$({ "$LIB_DIR/ExtractSymbols" "$thin_dsym_file" "$LIB_DIR"/static_json_part > $arch_json; } 2>&1 | while read line; do echo -n "$line\\n"; done; exit ${PIPESTATUS[0]}) &&
     [ -z "$extract_symbols_errors" ] ||
     handle_error ERROR_extractSymbolsErrors "$extract_symbols_errors"
   end_measurement extract_symbols_$arch
@@ -397,7 +397,7 @@ if [ ${#changed_dynamics[*]} -gt 0 ]; then #{{{
     begin_measurement final_dsymutil
     xcrun dsymutil "$dsym_source_file" -o "$dsym_destination_dir" > /dev/null 2>&1 || handle_error ERROR_dsymOverrideError
     end_measurement final_dsymutil
-    dsym_file=`dsym_file_from_path "dsym_destination_dir"`
+    dsym_file=`dsym_file_from_path "$dsym_destination_dir"`
 
     rm -rf "$temp_dir"
   fi

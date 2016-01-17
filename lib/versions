@@ -1,5 +1,5 @@
 # The file is sourced by bash, so the only expressions allowed are assignments without spaces
-build=153
+build=154
 lib=0.13.0
 api=1.10.0
 xcodeproj_configuration=4
