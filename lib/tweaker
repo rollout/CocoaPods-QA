@@ -398,8 +398,6 @@ if [ ${#changed_dynamics[*]} -gt 0 ]; then #{{{
     xcrun dsymutil "$dsym_source_file" -o "$dsym_destination_dir" > /dev/null 2>&1 || handle_error ERROR_dsymOverrideError
     end_measurement final_dsymutil
     dsym_file=`dsym_file_from_path "$dsym_destination_dir"`
-
-    rm -rf "$temp_dir"
   fi
 else
   remove_linker_and_lipo_cmd_files
@@ -422,6 +420,8 @@ if [ -z "$disable_upload" ]; then
 else
   echo "Dsym uploading disabled"
 fi
+
+rm -rf "$temp_dir"
 
 # Copy JSON_WITHOUT_DATA: #{{{
 cp -v "$JSON_WITHOUT_DATA"  "${CONFIGURATION_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/"
