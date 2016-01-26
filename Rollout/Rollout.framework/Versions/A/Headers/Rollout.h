@@ -1,5 +1,5 @@
 //
-//  Rollout SDK version 0.13.0, Build 155
+//  Rollout SDK version 0.14.0, Build 161
 //
 //  Copyright (c) 2014 Rollout.io. All rights reserved.
 //
@@ -9,9 +9,8 @@
 
 @interface Rollout : NSObject
 
-+(void) setupWithDebug: (BOOL) debug options:(RolloutOptions*)options;
-+(void) setupWithDebug: (BOOL) debug;
-+(void) setup: (NSString*) projectId debug: (BOOL) debug __attribute__ ((deprecated));
++(void)setupWithKey:(NSString *)rolloutKey developmentDevice:(BOOL)developmentDevice options:(RolloutOptions*)options;
++(void)setupWithKey:(NSString *)rolloutKey developmentDevice: (BOOL)developmentDevice;
 +(BOOL) rolloutDisabled;
 + (void)setRolloutDisabled:(BOOL)value;
 
