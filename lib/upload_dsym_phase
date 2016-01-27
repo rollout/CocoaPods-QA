@@ -100,7 +100,7 @@ else
   dsym_path="$VAR_DIR"/dsym.dSYM
   rm -rf "$dsym_path"
   xcrun dsymutil "$target" -o "$dsym_path" > /dev/null 2>&1
-  dsym_file=`dsym_file_from_path "$dsym_path`"
+  dsym_file=`dsym_file_from_path "$dsym_path"`
 fi
 
 [ -f "$dsym_file" ] || handle_error ERROR_couldNotSeparateDsymBundle
