@@ -5,6 +5,7 @@ require_relative './bundle/bundler/setup'
 require_relative './remove_rollout_from_xcodeproj'
 require_relative './addfile'
 require_relative './create_script'
+require_relative './override_clang'
 
 configuration = JSON.parse(STDIN.read)
 xcode_dir = configuration["xcode_dir"]
@@ -17,6 +18,7 @@ project = Xcodeproj::Project.new(xcode_dir)
 project.initialize_from_file
 
 RemoveRolloutFromXcodeproj.new(project).remove_rollout_from_xcodeproj
+OverrideClang.new(project).uninstall
 
 add_file = AddFile.new(project)
 add_file_result = 0 
