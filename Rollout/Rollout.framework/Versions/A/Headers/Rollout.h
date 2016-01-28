@@ -1,5 +1,5 @@
 //
-//  Rollout SDK version 0.14.1, Build 169
+//  Rollout SDK version 0.14.1, Build 171
 //
 //  Copyright (c) 2014 Rollout.io. All rights reserved.
 //
@@ -11,6 +11,7 @@
 
 +(void)setupWithKey:(NSString *)rolloutKey developmentDevice:(BOOL)developmentDevice options:(RolloutOptions*)options;
 +(void)setupWithKey:(NSString *)rolloutKey developmentDevice: (BOOL)developmentDevice;
++(void)setupWithKey:(NSString *)rolloutKey;
 +(BOOL) rolloutDisabled;
 + (void)setRolloutDisabled:(BOOL)value;
 
