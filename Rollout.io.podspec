@@ -23,7 +23,7 @@ Pod::Spec.new do |s|
   
   s.weak_framework = 'JavaScriptCore'
 
-  s.source       = { :git => "https://github.com/rollout/rollout.io-ios.git", :tag => "0.14.1" }
+  s.source       = { :git => ".git", :tag => "0.14.1" }
   s.preserve_paths = "lib/**/*", "install/**/*", "Rollout/RolloutDynamic.m"
 
 end
