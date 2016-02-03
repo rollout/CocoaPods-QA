@@ -76,19 +76,6 @@ end_of_error_msg
   handle_error ERROR_wrongSelfVersion
 } #' (sublime goes crazy on unpaired single quote...)
 
-# Define ROLLOUT_allServicesInOneServer: #{{{
-case `(. "$LIB_DIR"/versions; echo $mode)` in
-  development)
-    export ROLLOUT_allServicesInOneServer=https://localhost.rollout.io:9000
-    ;;
-  qa)
-    export ROLLOUT_allServicesInOneServer=https://qa.rollout.io
-    ;;
-  production)
-    unset ROLLOUT_allServicesInOneServer
-    ;;
-esac #}}}
- 
 mkdir -p "$VAR_DIR"
 
 target="$CODESIGNING_FOLDER_PATH/$EXECUTABLE_NAME"
