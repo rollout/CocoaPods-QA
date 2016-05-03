@@ -11,8 +11,7 @@ Pod::Spec.new do |s|
 		      "text" => "See http://www.rollout.io/"
 		   }
   s.authors      = { 
-                      "Eyal Keren" => "eyal@rollout.io",
-                      "Sergey Ilyevsky" => "sergey@rollout.io"
+                      "Rollout.io" => "support@rollout.io"
 		   }
   s.documentation_url = "http://support.rollout.io/"
 
