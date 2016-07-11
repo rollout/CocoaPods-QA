@@ -67,6 +67,7 @@ _RE(RolloutSwiftDevModeDataProvider_couldNotInitialize)
 
 _RE(RolloutSwiftTweakCreator_couldNotGetSelector)
 
+_RE(RolloutSwiftFFITypeFactory_couldNotResolveFFIType)
 _RE(RolloutSwiftFFIPrimitiveType_couldNotReplaceType)
 
 
