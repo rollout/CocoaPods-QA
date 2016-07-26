@@ -20,13 +20,20 @@ typedef enum {
     RolloutTweakId_closureTypesCount
 } RolloutTweakId_closureType;
 
+typedef enum {
+    RolloutTweakId_swiftSwizzlingMechanism_vtable,
+    RolloutTweakId_swiftSwizzlingMechanism_codeInjection,
+    RolloutTweakId_swiftSwizzlingMechanismsCount
+} RolloutTweakId_swiftSwizzlingMechanism;
+
 @interface RolloutTweakId : NSObject <NSCopying>
 
 @property (readonly) id<RolloutMethodId> methodId;
 @property (readonly) RolloutTweakId_swizzlingType swizzlingType;
 @property (readonly) RolloutTweakId_closureType closureType;
+@property (readonly) RolloutTweakId_swiftSwizzlingMechanism swiftSwizzlingMechanism;
 
-- (instancetype)initWithMethodId:(id <RolloutMethodId>)methodId swizzlingType:(RolloutTweakId_swizzlingType)swizzlingType closureType:(RolloutTweakId_closureType)closureType;
+- (instancetype)initWithMethodId:(id <RolloutMethodId>)methodId swizzlingType:(RolloutTweakId_swizzlingType)swizzlingType closureType:(RolloutTweakId_closureType)closureType swiftSwizzlingMechanism:(RolloutTweakId_swiftSwizzlingMechanism)swiftSwizzlingMechanism;
 
 - (instancetype)initFromJsonConfiguration:(NSDictionary *)configuration swiftDevModeDataProvider:(RolloutSwiftDevModeDataProvider *)swiftDevModeDataProvider;
 
