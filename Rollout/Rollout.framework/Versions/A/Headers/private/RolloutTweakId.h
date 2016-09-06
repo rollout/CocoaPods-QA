@@ -6,7 +6,6 @@
 #import <Foundation/Foundation.h>
 
 @protocol RolloutMethodId;
-@class RolloutSwiftDevModeDataProvider;
 
 typedef enum {
     RolloutTweakId_swizzlingType_replaceImplementation,
@@ -35,6 +34,6 @@ typedef enum {
 
 - (instancetype)initWithMethodId:(id <RolloutMethodId>)methodId swizzlingType:(RolloutTweakId_swizzlingType)swizzlingType closureType:(RolloutTweakId_closureType)closureType swiftSwizzlingMechanism:(RolloutTweakId_swiftSwizzlingMechanism)swiftSwizzlingMechanism;
 
-- (instancetype)initFromJsonConfiguration:(NSDictionary *)configuration swiftDevModeDataProvider:(RolloutSwiftDevModeDataProvider *)swiftDevModeDataProvider;
+- (instancetype)initFromJsonConfiguration:(NSDictionary *)configuration;
 
 @end
