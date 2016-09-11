@@ -88,8 +88,9 @@ echo "Configuring project \"$xcode_dir\""
 rm -rf "$PROJECT_DIR"/Rollout-ios-SDK
 analytics  rm_exit_status $? 
 
-"$BIN_DIR"/Installer "$xcode_dir" "$app_key" "$include_swift"
-
+[ -n "$include_swift" ] && "$BIN_DIR"/Installer "$xcode_dir" "$app_key" "$include_swift" || {
+    "$BIN_DIR"/Installer "$xcode_dir" "$app_key"
+}
 exit_status=$?
 
 analytics configure_pod_exit_status $exit_status 
