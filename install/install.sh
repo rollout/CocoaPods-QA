@@ -40,6 +40,7 @@ EOF
 
 xcode_dir="$1"
 app_key=$2
+include_swift=$3
 
 [ -d "$xcode_dir" ] || { echo "Can't find xcode project dir ($xcode_dir)"; exit=1; }
 [ -n "$app_key" ] || { echo "app_key is required"; exit=1; }

@@ -22,7 +22,6 @@ extract_args() {
     shift # past argument or value
     done
 }
-
 extract_args "$@"
 
 is_debug=`basename "$0"`
@@ -33,8 +32,17 @@ if [ "$is_debug" == "swiftc_debug" ]; then
     exec 3>&1 4>&2
 fi
 
-VAR_DIR=/tmp/rollout_var/swift_injections/"$arch"
-mkdir -p "$VAR_DIR"
+log_debug() {
+    echo "$1" >&3
+}
+
+log_always() {
+    echo "$1"
+}
+
+swift_injections_dir=/tmp/rollout_var/swift_injections
+mkdir -p swift_injections_dir
+VAR_DIR=`mktemp -d $swift_injections_dir/"$arch".XXXXX`
 
 originalParams=("$@")
 swift_path=`/usr/bin/xcrun -f swiftc`
@@ -43,24 +51,35 @@ error_handler() {
     local check_last_status=$1
     local last_status=$2
     local category=$3
-    echo "exec original swiftc" >&3
+    log_debug "exec original swiftc"
     unset ROLLOUT_REPLACEMENTS
     unset DYLD_FORCE_FLAT_NAMESPACE
     unset DYLD_INSERT_LIBRARIES
     "$swift_path" "${originalParams[@]}"
     local original_status=$?
     if [[ ("$check_last_status" == "false" && "$original_status" -eq "0") || ("$check_last_status" == "true" && "$original_status" -ne "$last_status") ]]; then 
-       echo "ROLLOUT ERROR: $category"
-       echo "going to send error to Rollout.io"
-       (
-           echo "$error_file"
-           server="$ROLLOUT_allServicesInOneServer"
-           [ -n "$ROLLOUT_allServicesInOneServer" ] || server="https://error.rollout.io"
-           url="$server/build/error/$category"
-           gzip -c "$error_file" | curl -sS --location --post301 --post302 -F data=@"-" "$url" 
-       ) &
+        log_always "ROLLOUT ERROR: $category"
+        session_id=$RANDOM
+        error_build_copy=$swift_injections_dir/error.$arch
+        error_session_copy=$swift_injections_dir/error.$session_id
+        log_always "going to send error file to Rollout.io . Session id: $session_id. Also copying the error file to \"$error_build_copy\""
+        cp $error_file $error_build_copy
+        cp $error_file $error_session_copy
+        (
+            { set +x; } > /dev/null 2>&1
+            echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id started."
+            server="$ROLLOUT_allServicesInOneServer"
+            [ -n "$ROLLOUT_allServicesInOneServer" ] || server="https://error.rollout.io"
+            url="$server/build/error/$category"
+            echo "`date +"%Y-%m-%d_%H:%M:%S"`: sending \"$error_session_copy\" file to url \"$url\"."
+            gzip -c "$error_session_copy" | curl -sS --location --post301 --post302 -F data=@"-" "$url"
+            echo "`date +"%Y-%m-%d_%H:%M:%S"`: removing error file \"$error_session_copy\".."
+            rm $error_session_copy
+            echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id finished."
+            echo
+        ) >> $swift_injections_dir/error_reporting.log 2>&1 &
     else
-       echo "OTHER ERROR" >&3
+       log_debug "OTHER ERROR"
     fi
    
     clean 
@@ -68,9 +87,10 @@ error_handler() {
 }
 
 clean() {
-    [ -d /tmp/rollout_swiftc_generated_files_debug_location ] && {
-      rm -rf /tmp/rollout_swiftc_generated_files_debug_location/*"$arch"
-      mv "$VAR_DIR" /tmp/rollout_swiftc_generated_files_debug_location/"$arch"
+    local debug_path=/tmp/rollout_swiftc_generated_files_debug_location
+    [ -d $debug_path ] && {
+      rm -rf $debug_path/"$arch"
+      mv "$VAR_DIR" $debug_path/"$arch"
     } || {
       rm -rf "$VAR_DIR"
     }
@@ -126,7 +146,7 @@ cat $error_file
 
 for i in "${STRIPFILES[@]}"
 do
-    strip -A "$i" 2>$error_file || error_handler "false" $? "Strip"
+    strip -x "$i" 2>$error_file 1>&2 || error_handler "false" $? "Strip"
 done
 
 clean
