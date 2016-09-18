@@ -41,7 +41,7 @@ log_always() {
 }
 
 swift_injections_dir=/tmp/rollout_var/swift_injections
-mkdir -p swift_injections_dir
+mkdir -p "$swift_injections_dir"
 VAR_DIR=`mktemp -d $swift_injections_dir/"$arch".XXXXX`
 
 originalParams=("$@")
