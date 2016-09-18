@@ -135,11 +135,11 @@ do
     }
 done
 
-$DIR/../../lib/Oyster/MacOS/Oyster "$Rollout_Generated" "$rollout_sources_file" >&3 2>$error_file || error_handler "false" $? "Oyster"
+"$DIR/../../lib/Oyster/MacOS/Oyster" "$Rollout_Generated" "$rollout_sources_file" >&3 2>$error_file || error_handler "false" $? "Oyster"
 
 export ROLLOUT_REPLACEMENTS="$rollout_replacements_file"
 export DYLD_FORCE_FLAT_NAMESPACE=1
-export DYLD_INSERT_LIBRARIES=$DIR/../../lib/libRolloutOverrides.dylib
+export DYLD_INSERT_LIBRARIES="$DIR/../../lib/libRolloutOverrides.dylib"
 
 "$swift_path" "$@" 2>$error_file || error_handler "true" $? "Compiler" 
 cat $error_file
