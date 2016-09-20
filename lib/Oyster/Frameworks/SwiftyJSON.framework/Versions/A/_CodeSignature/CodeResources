@@ -6,7 +6,7 @@
 	<dict>
 		<key>Resources/Info.plist</key>
 		<data>
-		T/fYy0DA+W6f2G9sUqpMwA4nB1k=
+		BUv5PAzv8j9By7DPifAq5LxAujk=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -48,11 +48,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			XYMX+d6OEbVbitTBrODBth856T4=
+			1Xo2YouKfmg5plY4EOyi4n9DTpc=
 			</data>
 			<key>hash2</key>
 			<data>
-			9Ie97aUM+ZCQoAAfeL75oEqlKhgV1VOkSieW1XBCJKg=
+			KLde/nCuJ69+j/CAZDLXZKPPCXZQhLCiSWMFlrqMc6c=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
@@ -70,11 +70,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			T/fYy0DA+W6f2G9sUqpMwA4nB1k=
+			BUv5PAzv8j9By7DPifAq5LxAujk=
 			</data>
 			<key>hash2</key>
 			<data>
-			QRJ4kqfs3uBkwEzE9aHws6NAFMfkIJXcIt89PvPQvpA=
+			gBjMhVYhZulgUz3eRSZl/BbpXMIymse/mLawKjOwR9c=
 			</data>
 		</dict>
 	</dict>
@@ -95,6 +95,11 @@
 			<true/>
 			<key>weight</key>
 			<real>1100</real>
+		</dict>
+		<key>^Resources/Base\.lproj/</key>
+		<dict>
+			<key>weight</key>
+			<real>1010</real>
 		</dict>
 		<key>^version.plist$</key>
 		<true/>
@@ -154,6 +159,11 @@
 			<true/>
 			<key>weight</key>
 			<real>1100</real>
+		</dict>
+		<key>^Resources/Base\.lproj/</key>
+		<dict>
+			<key>weight</key>
+			<real>1010</real>
 		</dict>
 		<key>^[^/]+$</key>
 		<dict>
