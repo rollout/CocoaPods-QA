@@ -30,10 +30,12 @@ extract_args "$@"
 
 is_debug=`basename "$0"`
 exec 3>/dev/null 4>&3
+debug_mode=""
 if [ "$is_debug" == "swiftc_debug" ]; then
     echo "running swiftc in debug"
     set -x
     exec 3>&1 4>&2
+    debug_mode="-d"
 fi
 
 log_debug() {
@@ -145,7 +147,7 @@ do
     }
 done
 
-"$DIR/../../lib/Oyster/MacOS/Oyster" "$Rollout_Generated" "$rollout_sources_file" >&3 2>$error_file; oyster_exit_code=$?
+"$DIR/../../lib/Oyster/MacOS/Oyster" "$Rollout_Generated" "$rollout_sources_file" $debug_mode >&3 2>$error_file; oyster_exit_code=$?
 
 [ $oyster_exit_code -eq 0 ] || {
     log_dir=/tmp/rollout_var

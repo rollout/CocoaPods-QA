@@ -84,7 +84,8 @@ func extractFromTypeWrapper<T>(_ typeWrapper: RolloutTypeWrapper) -> T {
         return swiftType.get()
     }
     
-    return typeWrapper.objCObjectPointerValue as! T
+    let interimOptionalValueDueToBugInSwift3 = typeWrapper.objCObjectPointerValue as? T
+    return interimOptionalValueDueToBugInSwift3!
 }
 
 func initWithTypeWrapper<T>(_ value: T) -> RolloutTypeWrapper {
@@ -161,12 +162,9 @@ func initWithTypeWrapper<T>(_ value: T) -> RolloutTypeWrapper {
     else if (T.self == String.self || T.self == String?.self) {
         return RolloutTypeWrapper.init(objCObjectPointer: value as! String)
     }
-    #if swift(>=3.0)
-    #else
-        if let objcValue = value as? NSObject {
-            return RolloutTypeWrapper.init(objCObjectPointer: objcValue)
-        }
-    #endif
+    else if let objcValue = value as? NSObject {
+        return RolloutTypeWrapper.init(objCObjectPointer: objcValue)
+    }
     
     let swiftWrapper = initWithSwiftTypeWrapper(value)
     return RolloutTypeWrapper(objCObjectPointer: swiftWrapper)
