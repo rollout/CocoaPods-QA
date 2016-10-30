@@ -77,7 +77,7 @@ EOF
 [ -n "$app_key" ] || handle_error ERROR_appKeyMissing
 
 rollout_build=`(. "$LIB_DIR"/versions; echo $build)`
-echo "Rollout.io upload_dsym_phase (Rollout SDK build $build)"
+echo "Rollout.io upload_data_phase (Rollout SDK build $build)"
 
 xcodeproj_configuration=`(. "$LIB_DIR"/versions; echo $xcodeproj_configuration)`
 [ 0$ROLLOUT_lastXcodeprojConfiguration -ge $xcodeproj_configuration ] || {
@@ -108,19 +108,28 @@ fi
 
 [ -f "$dsym_file" ] || handle_error ERROR_missingDsym
 
+rollout_structure_file=`find "$VAR_DIR"/swift_injections -name "$PRODUCT_MODULE_NAME"_"$CURRENT_ARCH"*`
+
 if [ -z "$disable_upload" ]; then
   dsym_session_id=$RANDOM
   named_dsym="$VAR_DIR"/dsym__"$app_key"__`date +"%Y-%m-%d_%H:%M:%S"`__$dsym_session_id.dsym
   cp "$dsym_file" "$named_dsym"
-  echo "Going to upload the dsym in the background. Session id: $dsym_session_id, dsym path: \"$named_dsym\""
+
+  if [ -f "$rollout_structure_file" ]; then
+    named_structure_file="$VAR_DIR"/structure__"$app_key"__`date +"%Y-%m-%d_%H:%M:%S"`__$dsym_session_id.json
+    mv "$rollout_structure_file" "$named_structure_file"
+  fi
+
+  echo "Going to upload the data in the background. Session id: $dsym_session_id, dsym path: \"$named_dsym\", structure path: \"$named_structure_file\"   "
   (
-    echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $dsym_session_id started (-k $app_key -d \"$named_dsym\")"
-    "$LIB_DIR"/upload_dsym -k $app_key -d "$named_dsym"
+    echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $dsym_session_id started (-k $app_key -d \"$named_dsym\" -s \"$named_structure_file\" )"
+    "$LIB_DIR"/upload_data -k $app_key -d "$named_dsym" -s "$named_structure_file"
     rm "$named_dsym"
+    rm "$named_structure_file"
     echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $dsym_session_id finished"
-  ) >> "$VAR_DIR"/upload_dsym.log 2>&1 &
+  ) >> "$VAR_DIR"/upload_data.log 2>&1 &
 else
-  echo "Dsym uploading disabled"
+  echo "Data uploading disabled"
 fi
 
 rm -rf $temp_dir

@@ -12,7 +12,7 @@ while getopts "k:" option; do #{{{
   esac
 done #}}}
 
-BUILD_SETTINGS_FILE=/tmp/rollout_var/build_data/$TARGET_NAME.$CURRENT_ARCH-apple-$SWIFT_PLATFORM_TARGET_PREFIX$IPHONEOS_DEPLOYMENT_TARGET
+BUILD_SETTINGS_FILE=/tmp/rollout_var/build_data/$PRODUCT_MODULE_NAME.$CURRENT_ARCH-apple-$SWIFT_PLATFORM_TARGET_PREFIX$IPHONEOS_DEPLOYMENT_TARGET
 echo "Using build settings file: $BUILD_SETTINGS_FILE"
 mkdir -p `dirname $BUILD_SETTINGS_FILE`
 echo "rollout_key=$app_key" > $BUILD_SETTINGS_FILE
