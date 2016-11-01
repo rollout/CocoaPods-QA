@@ -39,8 +39,9 @@ rollout_build=`(. "$BIN_DIR"/../lib/versions; echo $build)`
 
 shopt -s nullglob
 
-unset app_key help exit xcode_dir tweaker_before_linking include_swift
-while getopts "p:k:lsh" option; do
+include_swift="-s"
+unset app_key help exit xcode_dir tweaker_before_linking
+while getopts "p:k:lsoh" option; do
   case $option in
     k)
       app_key=$OPTARG
@@ -57,6 +58,9 @@ while getopts "p:k:lsh" option; do
     s)
       include_swift="-s"
       ;;
+    o)
+      include_swift=""
+      ;;
     *)
       exit=1
       ;;
@@ -72,7 +76,7 @@ $0 <options>
   -p <.xcodeproj dir>    a path to the project directory (optional, for cases
                          in which the script cannot locate it automatically)
   -l                     set tweaker script phase before the linking phase
-  -s                     Include swift support
+  -o                     Exclude swift support (ObjC only)
   -h                     this help message
 EOF
   exit
