@@ -39,8 +39,7 @@ rollout_build=`(. "$BIN_DIR"/../lib/versions; echo $build)`
 
 shopt -s nullglob
 
-include_swift="-s"
-unset app_key help exit xcode_dir tweaker_before_linking
+unset app_key help exit xcode_dir tweaker_before_linking include_swift exclude_swift
 while getopts "p:k:lsoh" option; do
   case $option in
     k)
@@ -59,13 +58,23 @@ while getopts "p:k:lsoh" option; do
       include_swift="-s"
       ;;
     o)
-      include_swift=""
+      exclude_swift="-o"
       ;;
     *)
       exit=1
       ;;
   esac
 done
+
+[ -n "$include_swift" ] && [ -n "$exclude_swift" ] && {
+  echo "-s and -o can't be specified together"
+  help=1
+}
+
+[ -z "$include_swift" ] && [ -z "$exclude_swift" ] && {
+  echo "-s or -o are required "
+  help=1
+}
 
 [ -z "$help" ] || {
   cat << EOF
