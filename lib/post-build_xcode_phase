@@ -128,9 +128,9 @@ if [ -z "$disable_upload" ]; then
 
   echo "Going to upload the data in the background. Session id: $upload_session_id, dsym path: \"$named_dsym\", structure path: \"$named_structure_file\"   "
   (
-    echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $upload_session_id started (`printf "%q " "${upload_data_cmd[@]}"`)"
     upload_data_cmd=("$LIB_DIR"/upload_data -k $app_key -d "$named_dsym")
     [ -z "$named_structure_file" ] || upload_data_cmd=("${upload_data_cmd[@]}" -s "$named_structure_file")
+    echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $upload_session_id started (`printf "%q " "${upload_data_cmd[@]}"`)"
     "${upload_data_cmd[@]}"
     rm -f "$named_dsym" "$named_structure_file"
     echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $upload_session_id finished"
