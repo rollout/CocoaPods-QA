@@ -21,8 +21,6 @@ echo "rollout_key=$app_key" > $BUILD_SETTINGS_FILE
 
 rm -rf /tmp/rollout_var/open_replacements.log
 
-[ -n "$ROLLOUT_disableSwiftDataRecreationEnforcement" ] || touch "$ROLLOUT_DIR/RolloutSwift/RolloutGenerated.swift"
-
 xcodeproj_configuration=`(. "$LIB_DIR"/versions; echo $xcodeproj_configuration)`
 [ 0$ROLLOUT_lastXcodeprojConfiguration -ge $xcodeproj_configuration ] || {
   cat << end_of_error_msg

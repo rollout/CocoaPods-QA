@@ -2,6 +2,19 @@
 
 echo "Rollout Swift wrapper: `date`"
 
+debug_replace_in_place=""
+# debug_replace_in_place="create_in_place"
+# debug_replace_in_place="no_oyster"
+# debug_replace_in_place="restore"
+
+originalParams=("$@")
+swift_path=`/usr/bin/xcrun -f swiftc`
+
+if [ "$debug_replace_in_place" == "no_oyster" ]; then
+    "$swift_path" "${originalParams[@]}"
+    exit $?
+fi
+
 unset arch output_file_map module_name
 extract_args() {
     while [[ $# -gt 0 ]]
@@ -59,8 +72,6 @@ swift_injections_dir=/tmp/rollout_var/swift_injections
 mkdir -p "$swift_injections_dir"
 VAR_DIR=`mktemp -d $swift_injections_dir/"$arch".XXXXX`
 
-originalParams=("$@")
-swift_path=`/usr/bin/xcrun -f swiftc`
 error_file="$VAR_DIR"/swiftc_error
 error_handler() {
     local check_last_status=$1
@@ -124,8 +135,16 @@ clean() {
     }
 }
 
+get_obj_file() {
+    local last_component=`basename "$1"`
+    local filename="${last_component%.*}"
+    local obj_file=`grep -o "${last_component}.*object.*:.*${filename}.o\"" "$output_file_map" | grep -o 'object.*' | grep -o ":.*" | grep -o "\/.*o"`
+    echo ${obj_file} | sed "s@\\\\@@g"
+}
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-STRIPFILES=()
+strip_all=()
+strip_rollout=()
 rollout_replacements_file="$VAR_DIR"/replacements
 rollout_sources_file="$VAR_DIR"/sources
 touch "$rollout_sources_file"
@@ -133,28 +152,20 @@ touch "$rollout_sources_file"
 for i in "$@"
 do
     [ -f "$i" ] || continue;
-    
+
     [[ $i =~ RolloutGenerated\.swift$ ]] && {
-        touch "$i"
         last_component=`basename "$i"`
         Rollout_Generated="$VAR_DIR"/"$last_component"
         cp "$i" "$Rollout_Generated" 2>$error_file ||  error_handler "false" $? "CopyFiles"
         echo "$i" >> "$rollout_replacements_file"
         echo "$Rollout_Generated" >> "$rollout_replacements_file"
-        filename="${last_component%.*}"
-        obj_file=`grep -o "${last_component}.*object.*:.*${filename}.o\"" "$output_file_map" | grep -o 'object.*' | grep -o ":.*" | grep -o "\/.*o"`
-        obj_file=$(echo ${obj_file} | sed "s@\\\\@@g")
-        STRIPFILES+=("$obj_file")
-        continue;
+        strip_all+=("`get_obj_file $i`")
+        continue
     } 
 
     [[ $i =~ RolloutSwiftInjectionBridge\.swift$ ]] && {
-        last_component=`basename "$i"`
-        filename="${last_component%.*}"
-        obj_file=`grep -o "${last_component}.*object.*:.*${filename}.o\"" "$output_file_map" | grep -o 'object.*' | grep -o ":.*" | grep -o "\/.*o"`
-        obj_file=$(echo ${obj_file} | sed "s@\\\\@@g")
-        STRIPFILES+=("$obj_file")
-        continue;
+        strip_all+=("`get_obj_file $i`")
+        continue
     }
 
     [[ $i =~ \.swift$ ]] && {
@@ -164,8 +175,36 @@ do
         echo "$TEMP_FILE" >> "$rollout_sources_file"
         echo "$i" >> "$rollout_replacements_file"
         echo "$TEMP_FILE" >> "$rollout_replacements_file"
+        strip_rollout+=("`get_obj_file $i`")
     }
 done
+
+if [ "$debug_replace_in_place" == create_in_place ] ; then
+    cat "$rollout_replacements_file" | {
+        while true; do
+            read real || break
+            read repl || break
+            orig="$real.orig"
+            if [ -f "$orig" ]; then
+                cp -f "$orig" "$repl"
+            else
+                cp "$real" "$orig"
+            fi
+        done
+    }
+elif [ "$debug_replace_in_place" == restore ] ; then
+    cat "$rollout_replacements_file" | {
+        while true; do
+            read real || break
+            read repl || break
+            orig="$real.orig"
+            if [ -f "$orig" ]; then
+                mv -f "$orig" "$real"
+                cp -f "$real" "$repl"
+            fi
+        done
+    }
+fi
 
 rollout_structure_file="$VAR_DIR"/rollout_structure_file
 "$DIR/../../lib/Oyster/MacOS/Oyster" "$Rollout_Generated" "$rollout_sources_file" "$module_name" "$rollout_structure_file" $debug_mode >&3 2>$error_file; oyster_exit_code=$?
@@ -174,16 +213,26 @@ rollout_structure_file="$VAR_DIR"/rollout_structure_file
     error_handler "false" $oyster_exit_code "Oyster"
 }
 
+if [ "$debug_replace_in_place" == "create_in_place" ] ; then
+    cat "$rollout_replacements_file" | {
+        while true; do
+            read real || break
+            read repl || break
+            orig="$real.orig"
+            cp -f "$repl" "$real"
+        done
+    }
+fi
+
 export ROLLOUT_REPLACEMENTS="$rollout_replacements_file"
 export DYLD_FORCE_FLAT_NAMESPACE=1
-export DYLD_INSERT_LIBRARIES="$DIR/../../lib/libRolloutOverrides.dylib"
+[ "$debug_replace_in_place" == "create_in_place" ] || export DYLD_INSERT_LIBRARIES="$DIR/../../lib/libRolloutOverrides.dylib"
 
 "$swift_path" "$@" 2>$error_file || error_handler "true" $? "Compiler" 
 cat $error_file
 
-for i in "${STRIPFILES[@]}"
-do
-    xcrun strip -x "$i" 2>$error_file 1>&2 || error_handler "false" $? "Strip"
+for i in "${strip_all[@]}"; do
+    xcrun strip -x "$i" 2>$error_file 1>&2 || error_handler "false" $? "StripAll"
 done
 
 mv "$rollout_structure_file" "$swift_injections_dir"/"$module_name"_"$arch"
