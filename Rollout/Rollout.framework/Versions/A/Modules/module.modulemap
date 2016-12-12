@@ -8,6 +8,7 @@ framework module Rollout {
     header "private/RolloutInvocationContext.h"
     header "private/RolloutInvocationsListFactory.h"
     header "private/RolloutMethodId.h"
+    header "private/RolloutSwiftSwizzlingData.h"
     header "private/RolloutSwiftTweakData.h"
     header "private/RolloutSwiftTypeWrapper.h"
     header "private/RolloutTweakId.h"

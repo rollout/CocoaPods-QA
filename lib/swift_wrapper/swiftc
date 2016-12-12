@@ -34,6 +34,10 @@ extract_args() {
             module_name="$2"
             shift #past argument
             ;;
+        -emit-module-path)
+            emit_module_path="$2"
+            shift
+            ;;
         *)
             # unknown option
             ;;
@@ -206,8 +210,9 @@ elif [ "$debug_replace_in_place" == restore ] ; then
     }
 fi
 
-rollout_structure_file="$VAR_DIR"/rollout_structure_file
-"$DIR/../../lib/Oyster/MacOS/Oyster" "$Rollout_Generated" "$rollout_sources_file" "$module_name" "$rollout_structure_file" $debug_mode >&3 2>$error_file; oyster_exit_code=$?
+rollout_structure_file="`dirname "$emit_module_path"`/$module_name.rollout_structure"
+"$DIR/../../lib/Oyster/MacOS/Oyster" --rolloutGeneratedPath "$Rollout_Generated" --rolloutSourcesFilePath "$rollout_sources_file" \
+                                     --moduleName "$module_name" --rolloutStructureFile "$rollout_structure_file" $debug_mode >&3 2>$error_file; oyster_exit_code=$?
 
 [ $oyster_exit_code -eq 0 ] || {
     error_handler "false" $oyster_exit_code "Oyster"
@@ -235,6 +240,6 @@ for i in "${strip_all[@]}"; do
     xcrun strip -x "$i" 2>$error_file 1>&2 || error_handler "false" $? "StripAll"
 done
 
-mv "$rollout_structure_file" "$swift_injections_dir"/"$module_name"_"$arch"
+touch "$rollout_structure_file"
 
 clean

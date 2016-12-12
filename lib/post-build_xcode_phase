@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 echo "Rollout post-build phase: `date`"
 
@@ -14,6 +14,8 @@ ERROR_wrongSelfVersion=("exit=3" "message=Incorrect SDK version" "xcode_alert=er
 ERROR_missingDsym=("exit=14" "message=Missing dSYM. Please contact us at support@rollout.io" "xcode_alert=error")
 ERROR_missingSwiftInjectionDir=("exit=15" "message=Missing Swift injection dir. Please contact us at support@rollout.io" "xcode_alert=error")
 ERROR_missingStructure=("exit=16" "message=Missing Swift structure. Please contact us at support@rollout.io" "xcode_alert=error")
+ERROR_missingSwiftModule=("exit=17" "message=Could not determine Swift module. Please contact us at support@rollout.io" "xcode_alert=error")
+ERROR_structureWasNotUpdated=("exit=18" "message=Structure is too old (was not updated by swift wrapper). Please contact us at support@rollout.io" "xcode_alert=error")
 
 handle_error() { #{{{
   eval local error=('"${'$1'[@]}"')
@@ -117,10 +119,11 @@ fi
 
 unset rollout_structure_file
 if [[ "$SWIFT_EXEC" =~ /lib/swift_wrapper/swiftc ]]; then
-  swift_injection_var_dir="$VAR_DIR"/swift_injections
-  [ -d "$swift_injection_var_dir" ] || handle_error ERROR_missingSwiftInjectionDir
-  rollout_structure_file=`find "$swift_injection_var_dir" -name "${PRODUCT_MODULE_NAME}_${CURRENT_ARCH}*"`
-  [ -f "$rollout_structure_file" ] || [ -n "$ROLLOUT_disableSwiftDataRecreationEnforcement" ] || handle_error ERROR_missingStructure
+  rollout_structure_file="$OBJECT_FILE_DIR_normal/$CURRENT_ARCH/${PRODUCT_MODULE_NAME}.rollout_structure"
+  swift_module="`dirname "$rollout_structure_file"`/$PRODUCT_NAME".swiftmodule
+  [ -f "$swift_module" ] || handle_error ERROR_missingSwiftModule
+  [ -f "$rollout_structure_file" ] || handle_error ERROR_missingStructure
+  [ `stat -f "%m" "$rollout_structure_file"` -ge `stat -f "%m" "$swift_module"` ] || handle_error ERROR_structureWasNotUpdated
 else
   echo "SWIFT_EXEC=\"$SWIFT_EXEC\" is either unset or is some custom path used for tests, so no structure uploading will be done"
 fi
@@ -133,7 +136,7 @@ if [ -z "$disable_upload" ]; then
   unset named_structure_file
   if [ -n "$rollout_structure_file" ]; then
     named_structure_file="$VAR_DIR"/structure__"$app_key"__`date +"%Y-%m-%d_%H:%M:%S"`__$upload_session_id.json
-    mv "$rollout_structure_file" "$named_structure_file"
+    cp "$rollout_structure_file" "$named_structure_file"
   fi
 
   echo "Going to upload the data in the background. Session id: $upload_session_id, dsym path: \"$named_dsym\", structure path: \"$named_structure_file\"   "

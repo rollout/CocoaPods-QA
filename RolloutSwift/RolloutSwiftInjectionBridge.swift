@@ -170,6 +170,14 @@ func initWithTypeWrapper<T>(_ value: T) -> RolloutTypeWrapper {
     return RolloutTypeWrapper(objCObjectPointer: swiftWrapper)
 }
 
+func Rollout_tweakDataForHash(hash:String) -> RolloutSwiftTweakData? {
+    #if swift(>=3.0)
+        return RolloutSwiftSwizzlingData.instance().tweakData(forHash:hash)
+    #else
+        return RolloutSwiftSwizzlingData.instance().tweakDataForHash(hash)
+    #endif
+}
+
 #if swift(>=3.0)
     @inline(__always) func Rollout_shouldPatch(_ tweakData:RolloutSwiftTweakData?) -> Bool {
         if tweakData != nil && tweakData!.shouldPatchInTheCurrentThread {

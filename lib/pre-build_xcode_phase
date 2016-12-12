@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 echo "Rollout pre-build phase: `date`"
 
@@ -36,3 +36,10 @@ If our guess is incorrect or if the above did not help, please contact us at sup
 end_of_error_msg
   exit 3
 }
+
+if [[ "$SWIFT_EXEC" =~ /lib/swift_wrapper/swiftc ]]; then
+  rollout_structure_file="$OBJECT_FILE_DIR_normal/$CURRENT_ARCH/${PRODUCT_MODULE_NAME}.rollout_structure"
+  swift_module="`dirname "$rollout_structure_file"`/$PRODUCT_NAME".swiftmodule
+  [ -f "$swift_module" ] && [ -f "$rollout_structure_file" ] && [ `stat -f "%m" "$rollout_structure_file"` -ge `stat -f "%m" "$swift_module"` ] ||
+    touch "$ROLLOUT_DIR"/RolloutSwift/RolloutSwiftCompilerInitiator.swift
+fi
