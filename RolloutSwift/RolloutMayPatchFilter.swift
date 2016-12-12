@@ -1,3 +1,5 @@
+import Foundation
+
 class RolloutMayPatchFilter {
     @objc static let numberOfFilters = 2
     @objc static let filterLength = 256

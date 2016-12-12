@@ -167,7 +167,7 @@ do
         continue
     } 
 
-    [[ $i =~ RolloutSwiftInjectionBridge\.swift$ ]] && {
+    [[ $i =~ (RolloutSwiftInjectionBridge|RolloutMayPatchFilter)\.swift$ ]] && {
         strip_all+=("`get_obj_file $i`")
         continue
     }
