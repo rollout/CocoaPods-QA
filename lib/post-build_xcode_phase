@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 echo "Rollout post-build phase: `date`"
 
@@ -120,7 +120,7 @@ fi
 unset rollout_structure_file
 if [[ "$SWIFT_EXEC" =~ /lib/swift_wrapper/swiftc ]]; then
   rollout_structure_file="$OBJECT_FILE_DIR_normal/$CURRENT_ARCH/${PRODUCT_MODULE_NAME}.rollout_structure"
-  swift_module="`dirname "$rollout_structure_file"`/$PRODUCT_NAME".swiftmodule
+  swift_module="`dirname "$rollout_structure_file"`/$PRODUCT_MODULE_NAME".swiftmodule
   [ -f "$swift_module" ] || handle_error ERROR_missingSwiftModule
   [ -f "$rollout_structure_file" ] || handle_error ERROR_missingStructure
   [ `stat -f "%m" "$rollout_structure_file"` -ge `stat -f "%m" "$swift_module"` ] || handle_error ERROR_structureWasNotUpdated

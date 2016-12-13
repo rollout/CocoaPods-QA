@@ -2,6 +2,9 @@
 
 echo "Rollout Swift wrapper: `date`"
 
+rollout_dir=$(cd "`dirname "$0"/../..`"; pwd)
+lib_version=$(. "$rollout_dir"/lib/versions; echo $lib)
+
 debug_replace_in_place=""
 # debug_replace_in_place="create_in_place"
 # debug_replace_in_place="no_oyster"
@@ -10,8 +13,49 @@ debug_replace_in_place=""
 originalParams=("$@")
 swift_path=`/usr/bin/xcrun -f swiftc`
 
+unset measurements_list #{{{
+measurements_locals() {
+  local start=RolloutSwiftWrapperMeasurements__$1__start
+  local finish=RolloutSwiftWrapperMeasurements__$1__finish
+  local duration=RolloutSwiftWrapperMeasurements__$1__duration
+  echo "start=$start finish=$finish duration=$duration"
+}
+
+begin_measurement() {
+  local `measurements_locals $1`
+  [ -z "${!start}" ] || echo "warning: overriding start measurement for $1"
+  local value=`ruby -e 'puts Time.now.to_f'`
+  eval $start=$value
+  measurements_list[${#measurements_list[*]}]=$1
+}
+
+end_measurement() {
+  local `measurements_locals $1`
+  [ -z "${!finish}" ] || echo "warning: overriding finish measurement for $1"
+  local value=`ruby -e 'puts Time.now.to_f'`
+  eval $finish=$value
+  eval $duration=$(echo ${!finish} - ${!start} | bc)
+} #}}}
+
+finalize_measurements() {
+    end_measurement ALL
+    echo "Rollout Measurements results:"
+    for measurement_title in ${measurements_list[*]}; do
+      prefix=RolloutSwiftWrapperMeasurements__${measurement_title}__
+      duration="${prefix}duration"
+      [ -n "${!duration}" ] || continue
+      start=${prefix}start
+      finish=${prefix}finish
+      echo "    ${measurement_title}: ${!duration}  (${!start} - ${!finish})"
+    done
+}
+begin_measurement ALL
+
 if [ "$debug_replace_in_place" == "no_oyster" ]; then
+    begin_measurement swift_with_no_oyster
     "$swift_path" "${originalParams[@]}"
+    end_measurement swift_with_no_oyster
+    finalize_measurements
     exit $?
 fi
 
@@ -85,7 +129,9 @@ error_handler() {
     unset ROLLOUT_REPLACEMENTS
     unset DYLD_FORCE_FLAT_NAMESPACE
     unset DYLD_INSERT_LIBRARIES
+    begin_measurement swift_error_recompile
     "$swift_path" "${originalParams[@]}"
+    end_measurement swift_error_recompile
     local original_status=$?
     if [[ ("$check_last_status" == "false" && "$original_status" -eq "0") || ("$check_last_status" == "true" && "$original_status" -ne "$last_status") ]]; then 
         log_always "ROLLOUT ERROR: $category"
@@ -115,7 +161,7 @@ error_handler() {
             [ -n "$ROLLOUT_allServicesInOneServer" ] || server="https://error.rollout.io"
             url="$server/build/error/$category"
             echo "`date +"%Y-%m-%d_%H:%M:%S"`: sending \"$error_session_copy\" file to url \"$url\"."
-            gzip -c "$error_session_copy" | curl -sS --location --post301 --post302 -F rollout_key=$ROLLOUT_KEY -F data=@"-" "$url"
+            gzip -c "$error_session_copy" | curl -sS --location --post301 --post302 -F rollout_key=$ROLLOUT_KEY -F lib_version="$lib_version" -F data=@"-" "$url"
             echo "`date +"%Y-%m-%d_%H:%M:%S"`: removing error file \"$error_session_copy\".."
             rm $error_session_copy
             echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id finished."
@@ -126,6 +172,7 @@ error_handler() {
     fi
    
     clean 
+    finalize_measurements
     exit $last_status
 }
 
@@ -143,7 +190,7 @@ get_obj_file() {
     local last_component=`basename "$1"`
     local filename="${last_component%.*}"
     local obj_file=`grep -o "${last_component}.*object.*:.*${filename}.o\"" "$output_file_map" | grep -o 'object.*' | grep -o ":.*" | grep -o "\/.*o"`
-    echo ${obj_file} | sed "s@\\\\@@g"
+    echo "$obj_file" | sed "s@\\\\@@g"
 }
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -163,12 +210,12 @@ do
         cp "$i" "$Rollout_Generated" 2>$error_file ||  error_handler "false" $? "CopyFiles"
         echo "$i" >> "$rollout_replacements_file"
         echo "$Rollout_Generated" >> "$rollout_replacements_file"
-        strip_all+=("`get_obj_file $i`")
+        strip_all+=("`get_obj_file "$i"`")
         continue
     } 
 
     [[ $i =~ (RolloutSwiftInjectionBridge|RolloutMayPatchFilter)\.swift$ ]] && {
-        strip_all+=("`get_obj_file $i`")
+        strip_all+=("`get_obj_file "$i"`")
         continue
     }
 
@@ -179,7 +226,7 @@ do
         echo "$TEMP_FILE" >> "$rollout_sources_file"
         echo "$i" >> "$rollout_replacements_file"
         echo "$TEMP_FILE" >> "$rollout_replacements_file"
-        strip_rollout+=("`get_obj_file $i`")
+        strip_rollout+=("`get_obj_file "$i"`")
     }
 done
 
@@ -211,8 +258,10 @@ elif [ "$debug_replace_in_place" == restore ] ; then
 fi
 
 rollout_structure_file="`dirname "$emit_module_path"`/$module_name.rollout_structure"
+begin_measurement oyster
 "$DIR/../../lib/Oyster/MacOS/Oyster" --rolloutGeneratedPath "$Rollout_Generated" --rolloutSourcesFilePath "$rollout_sources_file" \
                                      --moduleName "$module_name" --rolloutStructureFile "$rollout_structure_file" $debug_mode >&3 2>$error_file; oyster_exit_code=$?
+end_measurement oyster
 
 [ $oyster_exit_code -eq 0 ] || {
     error_handler "false" $oyster_exit_code "Oyster"
@@ -233,7 +282,9 @@ export ROLLOUT_REPLACEMENTS="$rollout_replacements_file"
 export DYLD_FORCE_FLAT_NAMESPACE=1
 [ "$debug_replace_in_place" == "create_in_place" ] || export DYLD_INSERT_LIBRARIES="$DIR/../../lib/libRolloutOverrides.dylib"
 
+begin_measurement swift_compile
 "$swift_path" "$@" 2>$error_file || error_handler "true" $? "Compiler" 
+end_measurement swift_compile
 cat $error_file
 
 for i in "${strip_all[@]}"; do
@@ -243,3 +294,4 @@ done
 touch "$rollout_structure_file"
 
 clean
+finalize_measurements
