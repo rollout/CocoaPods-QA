@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
 
   s.name         = "Rollout.io"
-  s.version      = "1.8.0"
+  s.version      = "1.9.0"
   s.summary      = "Hot patch critical bugs in production apps"
   s.description  = "Rollout.io is an SDK that gives developers control over their apps in production, including the ability to remotely fix or contain bugs and quality issues."
 
@@ -23,7 +23,7 @@ Pod::Spec.new do |s|
   s.weak_framework = 'JavaScriptCore'
   s.libraries = 'c++'
 
-  s.source       = { :git => "https://github.com/rollout/CocoaPods-QA.git", :tag => "1.8.0" }
+  s.source       = { :git => "https://github.com/rollout/CocoaPods-QA.git", :tag => "1.9.0" }
   s.preserve_paths = "lib/**/*", "install/**/*", "RolloutSwift/*", "Rollout/RolloutDynamic.m"
 
 end
