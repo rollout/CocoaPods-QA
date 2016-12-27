@@ -2,7 +2,7 @@
 
 echo "Rollout Swift wrapper: `date`"
 
-rollout_dir=$(cd "`dirname "$0"/../..`"; pwd)
+rollout_dir=$(cd "`dirname "$0"`"/../..; pwd)
 lib_version=$(. "$rollout_dir"/lib/versions; echo $lib)
 
 debug_replace_in_place=""
@@ -122,54 +122,46 @@ VAR_DIR=`mktemp -d $swift_injections_dir/"$arch".XXXXX`
 
 error_file="$VAR_DIR"/swiftc_error
 error_handler() {
-    local check_last_status=$1
-    local last_status=$2
-    local category=$3
+    local last_status=$1
+    local category=$2
     log_debug "exec original swiftc"
     unset ROLLOUT_REPLACEMENTS
     unset DYLD_FORCE_FLAT_NAMESPACE
     unset DYLD_INSERT_LIBRARIES
-    begin_measurement swift_error_recompile
-    "$swift_path" "${originalParams[@]}"
-    end_measurement swift_error_recompile
-    local original_status=$?
-    if [[ ("$check_last_status" == "false" && "$original_status" -eq "0") || ("$check_last_status" == "true" && "$original_status" -ne "$last_status") ]]; then 
-        log_always "ROLLOUT ERROR: $category"
-        [ $category == "Oyster" ] && {
-            log_dir=/tmp/rollout_var
-            log_file=$log_dir/upload_oyster_crash_report.log
-            session_id=$RANDOM
-            log_always "Rollout: Will send oyster crash report now if any (in background), the output will be saved to $log_file , session id is $session_id"
-            mkdir -p $log_dir
-            (
-                log_always "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id started (rollout key $ROLLOUT_KEY)"
-                "$DIR/../../lib/Oyster/MacOS/Oyster" -r
-                log_always "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id finished (rollout key $ROLLOUT_KEY)"
-            ) >> $log_file 2>&1 &
-        }
 
+    log_always "ROLLOUT ERROR: $category"
+    [ $category == "Oyster" ] && {
+        log_dir=/tmp/rollout_var
+        log_file=$log_dir/upload_oyster_crash_report.log
         session_id=$RANDOM
-        error_build_copy=$swift_injections_dir/error.$arch
-        error_session_copy=$swift_injections_dir/error.$session_id
-        log_always "going to send error file to Rollout.io . Session id: $session_id. Also copying the error file to \"$error_build_copy\""
-        cp $error_file $error_build_copy
-        cp $error_file $error_session_copy
+        log_always "Rollout: Will send oyster crash report now if any (in background), the output will be saved to $log_file , session id is $session_id"
+        mkdir -p $log_dir
         (
-            { set +x; } > /dev/null 2>&1
-            echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id started."
-            server="$ROLLOUT_allServicesInOneServer"
-            [ -n "$ROLLOUT_allServicesInOneServer" ] || server="https://error.rollout.io"
-            url="$server/build/error/$category"
-            echo "`date +"%Y-%m-%d_%H:%M:%S"`: sending \"$error_session_copy\" file to url \"$url\"."
-            gzip -c "$error_session_copy" | curl -sS --location --post301 --post302 -F rollout_key=$ROLLOUT_KEY -F lib_version="$lib_version" -F data=@"-" "$url"
-            echo "`date +"%Y-%m-%d_%H:%M:%S"`: removing error file \"$error_session_copy\".."
-            rm $error_session_copy
-            echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id finished."
-            echo
-        ) >> $swift_injections_dir/error_reporting.log 2>&1 &
-    else
-       log_debug "OTHER ERROR"
-    fi
+            log_always "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id started (rollout key $ROLLOUT_KEY)"
+            "$DIR/../../lib/Oyster/MacOS/Oyster" -r
+            log_always "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id finished (rollout key $ROLLOUT_KEY)"
+        ) >> $log_file 2>&1 &
+    }
+
+    session_id=$RANDOM
+    error_build_copy=$swift_injections_dir/error.$arch
+    error_session_copy=$swift_injections_dir/error.$session_id
+    log_always "going to send error file to Rollout.io . Session id: $session_id. Also copying the error file to \"$error_build_copy\""
+    cp $error_file $error_build_copy
+    cp $error_file $error_session_copy
+    (
+        { set +x; } > /dev/null 2>&1
+        echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id started."
+        server="$ROLLOUT_allServicesInOneServer"
+        [ -n "$ROLLOUT_allServicesInOneServer" ] || server="https://error.rollout.io"
+        url="$server/build/error/$category"
+        echo "`date +"%Y-%m-%d_%H:%M:%S"`: sending \"$error_session_copy\" file to url \"$url\"."
+        gzip -c "$error_session_copy" | curl -sS --location --post301 --post302 -F rollout_key=$ROLLOUT_KEY -F lib_version="$lib_version" -F data=@"-" "$url"
+        echo "`date +"%Y-%m-%d_%H:%M:%S"`: removing error file \"$error_session_copy\".."
+        rm $error_session_copy
+        echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id finished."
+        echo
+    ) >> $swift_injections_dir/error_reporting.log 2>&1 &
    
     clean 
     finalize_measurements
@@ -207,7 +199,7 @@ do
     [[ $i =~ RolloutGenerated\.swift$ ]] && {
         last_component=`basename "$i"`
         Rollout_Generated="$VAR_DIR"/"$last_component"
-        cp "$i" "$Rollout_Generated" 2>$error_file ||  error_handler "false" $? "CopyFiles"
+        cp "$i" "$Rollout_Generated" 2>$error_file ||  error_handler $? "CopyFiles"
         echo "$i" >> "$rollout_replacements_file"
         echo "$Rollout_Generated" >> "$rollout_replacements_file"
         strip_all+=("`get_obj_file "$i"`")
@@ -222,7 +214,7 @@ do
     [[ $i =~ \.swift$ ]] && {
         last_component=`basename "$i"`
         TEMP_FILE="$VAR_DIR"/"$last_component"
-        cp "$i" "$TEMP_FILE" 2>$error_file ||  error_handler "false" $? "CopyFiles"
+        cp "$i" "$TEMP_FILE" 2>$error_file ||  error_handler $? "CopyFiles"
         echo "$TEMP_FILE" >> "$rollout_sources_file"
         echo "$i" >> "$rollout_replacements_file"
         echo "$TEMP_FILE" >> "$rollout_replacements_file"
@@ -264,7 +256,7 @@ begin_measurement oyster
 end_measurement oyster
 
 [ $oyster_exit_code -eq 0 ] || {
-    error_handler "false" $oyster_exit_code "Oyster"
+    error_handler $oyster_exit_code "Oyster"
 }
 
 if [ "$debug_replace_in_place" == "create_in_place" ] ; then
@@ -283,15 +275,18 @@ export DYLD_FORCE_FLAT_NAMESPACE=1
 [ "$debug_replace_in_place" == "create_in_place" ] || export DYLD_INSERT_LIBRARIES="$DIR/../../lib/libRolloutOverrides.dylib"
 
 begin_measurement swift_compile
-"$swift_path" "$@" 2>$error_file || error_handler "true" $? "Compiler" 
+"$swift_path" "$@"; compile_error=$?
 end_measurement swift_compile
-cat $error_file
 
-for i in "${strip_all[@]}"; do
-    xcrun strip -x "$i" 2>$error_file 1>&2 || error_handler "false" $? "StripAll"
-done
+if [ $compile_error == 0 ]; then
+    for i in "${strip_all[@]}"; do
+        xcrun strip -x "$i" 2>$error_file 1>&2 || error_handler $? "StripAll"
+    done
 
-touch "$rollout_structure_file"
+    touch "$rollout_structure_file"
+fi
 
 clean
 finalize_measurements
+
+exit $compile_error

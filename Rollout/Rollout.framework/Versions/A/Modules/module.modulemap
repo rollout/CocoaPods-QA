@@ -6,6 +6,7 @@ framework module Rollout {
     header "private/RolloutErrors.h"
     header "private/RolloutInvocation.h"
     header "private/RolloutInvocationContext.h"
+    header "private/RolloutInvocationResult.h"
     header "private/RolloutInvocationsListFactory.h"
     header "private/RolloutMethodId.h"
     header "private/RolloutSwiftSwizzlingData.h"
