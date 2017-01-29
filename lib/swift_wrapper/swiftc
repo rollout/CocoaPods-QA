@@ -275,8 +275,10 @@ export DYLD_FORCE_FLAT_NAMESPACE=1
 [ "$debug_replace_in_place" == "create_in_place" ] || export DYLD_INSERT_LIBRARIES="$DIR/../../lib/libRolloutOverrides.dylib"
 
 begin_measurement swift_compile
-"$swift_path" "$@"; compile_error=$?
+"$swift_path" "$@" 2>$error_file; compile_error=$?
 end_measurement swift_compile
+
+cat $error_file
 
 if [ $compile_error == 0 ]; then
     for i in "${strip_all[@]}"; do
