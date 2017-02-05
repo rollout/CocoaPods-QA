@@ -11,10 +11,13 @@
 @protocol RolloutDeviceProperties;
 @protocol RolloutErrors;
 
+@class RolloutFeatureFlagId;
+
 @interface RolloutConfiguration : NSObject
 
 @property (atomic) NSDictionary *conf;
 @property (atomic, readonly) NSDictionary *configurationsByTweakId;
+@property (atomic, readonly) NSArray<RolloutFeatureFlagId*> *featureFlagsIds;
 
 - (instancetype)initWithDeviceProperties:(id<RolloutDeviceProperties>)deviceProperties rolloutErrors:(id<RolloutErrors>)rolloutErrors;
 @end
