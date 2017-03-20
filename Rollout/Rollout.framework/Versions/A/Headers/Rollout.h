@@ -1,5 +1,5 @@
 //
-//  Rollout SDK version 1.12.2, Build 323
+//  Rollout SDK version 1.12.3, Build 333
 //
 //  Copyright (c) 2014 Rollout.io. All rights reserved.
 //
@@ -7,6 +7,7 @@
 #import <Foundation/Foundation.h>
 #import "RolloutOptions.h"
 #import "RolloutMacros.h"
+#import "RolloutFeature.h"
 
 @interface Rollout : NSObject
 

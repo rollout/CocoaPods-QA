@@ -139,13 +139,21 @@ if [ -z "$disable_upload" ]; then
     cp "$rollout_structure_file" "$named_structure_file"
   fi
 
+  framwork_dsyms_dir="$VAR_DIR/framwork_dsyms__"$app_key"__`date +"%Y-%m-%d_%H:%M:%S"`__$upload_session_id"
+  mkdir "$framwork_dsyms_dir"
+  find  "$DWARF_DSYM_FOLDER_PATH/" -type d -name '*.framework.dSYM' | while read f ; do
+    current_dsym=`dsym_file_from_path "$f"`
+    cp "$current_dsym" "$framwork_dsyms_dir"
+  done
+
   echo "Going to upload the data in the background. Session id: $upload_session_id, dsym path: \"$named_dsym\", structure path: \"$named_structure_file\"   "
   (
-    upload_data_cmd=("$LIB_DIR"/upload_data -k $app_key -d "$named_dsym")
+    upload_data_cmd=("$LIB_DIR"/upload_data -k $app_key -d "$named_dsym" -f "$framwork_dsyms_dir")
     [ -z "$named_structure_file" ] || upload_data_cmd=("${upload_data_cmd[@]}" -s "$named_structure_file")
     echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $upload_session_id started (`printf "%q " "${upload_data_cmd[@]}"`)"
     "${upload_data_cmd[@]}"
     rm -f "$named_dsym" "$named_structure_file"
+    rm -rf "$framwork_dsyms_dir"
     echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $upload_session_id finished"
   ) >> "$VAR_DIR"/upload_data.log 2>&1 &
 else

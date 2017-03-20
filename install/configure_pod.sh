@@ -4,7 +4,6 @@ export PATH=/usr/bin:/bin:"$PATH"
 export LC_ALL=UTF-8
 
 ERROR_canNotAutoDetectXcodeprojFile=(1 "Sorry, couldn't locate the .xcodeproj file automatically. Please specify it with the -p option")
-ERROR_noAppKeyProvided=(2 "Please specify the app key (use the -k switch)")
 ERROR_illegalOption=(3 "Please use -h for help")
 
 fail() {
@@ -15,7 +14,7 @@ fail() {
 
 analytic_id=0
 analytics(){
-  local query_params="application_key=${app_key}&$1=$2"
+  local query_params="$1=$2"
   local analytics_url="https://analytics.rollout.io/analytic/configure_pods"
   local curl_command="curl -sf"
   if [ "$analytic_id" == 0 ] ; then
@@ -39,26 +38,14 @@ rollout_build=`(. "$BIN_DIR"/../lib/versions; echo $build)`
 
 shopt -s nullglob
 
-unset app_key help exit xcode_dir tweaker_before_linking include_swift exclude_swift
-while getopts "p:k:lsoh" option; do
+unset help exit xcode_dir
+while getopts "p:h" option; do
   case $option in
-    k)
-      app_key=$OPTARG
-      ;;
-    l)
-      tweaker_before_linking=1
-      ;;
     h)
       help=1
       ;;
     p)
       xcode_dir=$OPTARG
-      ;;
-    s)
-      include_swift="-s"
-      ;;
-    o)
-      exclude_swift="-o"
       ;;
     *)
       exit=1
@@ -66,27 +53,13 @@ while getopts "p:k:lsoh" option; do
   esac
 done
 
-[ -n "$include_swift" ] && [ -n "$exclude_swift" ] && {
-  echo "-s and -o can't be specified together"
-  help=1
-}
-
-[ -z "$include_swift" ] && [ -z "$exclude_swift" ] && {
-  echo "-s or -o are required "
-  help=1
-}
-
 [ -z "$help" ] || {
   cat << EOF
 Usage:
 $0 <options>
 
-  -k <app key>           Rollout app key (required)
   -p <.xcodeproj dir>    a path to the project directory (optional, for cases
                          in which the script cannot locate it automatically)
-  -l                     set tweaker script phase before the linking phase
-  -s                     Include swift support
-  -o                     Exclude swift support (ObjC only)
   -h                     this help message
 EOF
   exit
@@ -94,7 +67,6 @@ EOF
 
 [ -z "$exit" ] || fail ERROR_illegalOption
 
-[ -n "$app_key" ] || fail ERROR_noAppKeyProvided
 analytics rollout_sdk_ios_build_number $rollout_build
 
 [ -n "$xcode_dir" ] || {
@@ -109,12 +81,7 @@ echo "Configuring project \"$xcode_dir\""
 rm -rf "$PROJECT_DIR"/Rollout-ios-SDK
 analytics  rm_exit_status $? 
 
-if [ -n "$include_swift" ] ; then
-  "$BIN_DIR"/Installer "$xcode_dir" "$app_key" "$include_swift"
-  analytics includes_swift true 
-else
-  "$BIN_DIR"/Installer "$xcode_dir" "$app_key"
-fi
+"$BIN_DIR"/Installer "$xcode_dir" "noappkey"
 
 exit_status=$?
 
