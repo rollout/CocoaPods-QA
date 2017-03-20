@@ -10,6 +10,9 @@ debug_replace_in_place=""
 # debug_replace_in_place="no_oyster"
 # debug_replace_in_place="restore"
 
+debug_generate_new_lines=false
+# debug_generate_new_lines=true
+
 originalParams=("$@")
 swift_path=`/usr/bin/xcrun -f swiftc`
 
@@ -143,26 +146,10 @@ error_handler() {
         ) >> $log_file 2>&1 &
     }
 
-    session_id=$RANDOM
     error_build_copy=$swift_injections_dir/error.$arch
-    error_session_copy=$swift_injections_dir/error.$session_id
-    log_always "going to send error file to Rollout.io . Session id: $session_id. Also copying the error file to \"$error_build_copy\""
+    log_always "Copying the error file to \"$error_build_copy\""
     cp $error_file $error_build_copy
-    cp $error_file $error_session_copy
-    (
-        { set +x; } > /dev/null 2>&1
-        echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id started."
-        server="$ROLLOUT_allServicesInOneServer"
-        [ -n "$ROLLOUT_allServicesInOneServer" ] || server="https://error.rollout.io"
-        url="$server/build/error/$category"
-        echo "`date +"%Y-%m-%d_%H:%M:%S"`: sending \"$error_session_copy\" file to url \"$url\"."
-        gzip -c "$error_session_copy" | curl -sS --location --post301 --post302 -F rollout_key=$ROLLOUT_KEY -F lib_version="$lib_version" -F data=@"-" "$url"
-        echo "`date +"%Y-%m-%d_%H:%M:%S"`: removing error file \"$error_session_copy\".."
-        rm $error_session_copy
-        echo "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id finished."
-        echo
-    ) >> $swift_injections_dir/error_reporting.log 2>&1 &
-   
+
     clean 
     finalize_measurements
     exit $last_status
@@ -187,7 +174,6 @@ get_obj_file() {
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 strip_all=()
-strip_rollout=()
 rollout_replacements_file="$VAR_DIR"/replacements
 rollout_sources_file="$VAR_DIR"/sources
 touch "$rollout_sources_file"
@@ -218,7 +204,6 @@ do
         echo "$TEMP_FILE" >> "$rollout_sources_file"
         echo "$i" >> "$rollout_replacements_file"
         echo "$TEMP_FILE" >> "$rollout_replacements_file"
-        strip_rollout+=("`get_obj_file "$i"`")
     }
 done
 
@@ -250,9 +235,11 @@ elif [ "$debug_replace_in_place" == restore ] ; then
 fi
 
 rollout_structure_file="`dirname "$emit_module_path"`/$module_name.rollout_structure"
+generate_new_lines="" && $debug_generate_new_lines && generate_new_lines="--generateNewLines"
 begin_measurement oyster
 "$DIR/../../lib/Oyster/MacOS/Oyster" --rolloutGeneratedPath "$Rollout_Generated" --rolloutSourcesFilePath "$rollout_sources_file" \
-                                     --moduleName "$module_name" --rolloutStructureFile "$rollout_structure_file" $debug_mode >&3 2>$error_file; oyster_exit_code=$?
+                                     --moduleName "$module_name" --rolloutStructureFile "$rollout_structure_file" $debug_mode \
+                                     $generate_new_lines >&3 2>$error_file; oyster_exit_code=$?
 end_measurement oyster
 
 [ $oyster_exit_code -eq 0 ] || {
