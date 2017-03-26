@@ -23,5 +23,4 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/rollout/CocoaPods-QA.git", :tag => "1.12.3" }
   s.preserve_paths = "lib/**/*", "install/**/*", "RolloutFeatureFlags/*"
 
-  s.prepare_command = 'printenv'
 end
