@@ -17,7 +17,7 @@
      @property (nonatomic, assign) RolloutFeature* myFeatureName;
  
  Use:
-    [RolloutFreaturesFlags.myFeatureName enabled:^{
+    [RolloutFeatureFlags.myFeatureName enabled:^{
         // enabled code here
     }];
  */
