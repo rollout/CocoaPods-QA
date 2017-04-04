@@ -1,9 +1,10 @@
 //
-//  Rollout SDK version 1.12.4, Build 347
+//  Rollout SDK version 1.12.4, Build 348
 //
 //  Copyright (c) 2014 Rollout.io. All rights reserved.
 //
 
+#import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import "RolloutOptions.h"
 #import "RolloutFeature.h"
@@ -20,6 +21,9 @@
 
 +(void) setupWithDebug: (BOOL) debug options:(RolloutOptions*)options __attribute__ ((deprecated));
 +(void) setupWithDebug: (BOOL) debug __attribute__ ((deprecated));
+
++ (UIViewController*)featuresViewController;
++ (BOOL)isTestDevice;
 
 @end
 
