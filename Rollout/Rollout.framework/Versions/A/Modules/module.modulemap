@@ -1,9 +1,0 @@
-framework module Rollout {
-    umbrella header "Rollout.h"
-
-    header "private/RolloutConfiguration.h"
-    header "private/RolloutErrors.h"
-    
-    link framework "JavaScriptCore"
-    link "stdc++"
-}

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Rollout Swift wrapper: `date`"
+echo "ROX Swift wrapper: `date`"
 
 rollout_dir=$(cd "`dirname "$0"`"/../..; pwd)
 lib_version=$(. "$rollout_dir"/lib/versions; echo $lib)
@@ -42,7 +42,7 @@ end_measurement() {
 
 finalize_measurements() {
     end_measurement ALL
-    echo "Rollout Measurements results:"
+    echo "ROX Measurements results:"
     for measurement_title in ${measurements_list[*]}; do
       prefix=RolloutSwiftWrapperMeasurements__${measurement_title}__
       duration="${prefix}duration"
@@ -137,7 +137,7 @@ error_handler() {
         log_dir=/tmp/rollout_var
         log_file=$log_dir/upload_oyster_crash_report.log
         session_id=$RANDOM
-        log_always "Rollout: Will send oyster crash report now if any (in background), the output will be saved to $log_file , session id is $session_id"
+        log_always "ROX: Will send oyster crash report now if any (in background), the output will be saved to $log_file , session id is $session_id"
         mkdir -p $log_dir
         (
             log_always "`date +"%Y-%m-%d_%H:%M:%S"`: session $session_id started (rollout key $ROLLOUT_KEY)"

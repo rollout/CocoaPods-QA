@@ -34,7 +34,7 @@ done
   cat 1>&2 << EOF
 Usage:  $0 <options>
 
-  -k <app key>                 Rollout app key
+  -k <app key>                 ROX app key
   -d <path to dsym>            path to the dsym file (the binary file, not the .dsym directory)
   -s <path to structure file>  path to the structure file
   -f <path to frameworks dir>  path to frameworks dsym dir
@@ -43,7 +43,7 @@ EOF
   exit
 }
 
-[ -n "$rollout_key" ] || { echo "Rollout app key is required (-k)" 1>&2 ; exit=1; }
+[ -n "$rollout_key" ] || { echo "ROX app key is required (-k)" 1>&2 ; exit=1; }
 [ -n "$dsym_file" ] || { echo "Path to dsym is required (-d)" 1>&2; exit=1; }
 
 [ -z "$exit" ] || exit 1

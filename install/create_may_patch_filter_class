@@ -23,7 +23,7 @@ done
 if $help; then
   cat << EOF
 
-Description: Generate filter variables for Rollout Swift code instrumentation
+Description: Generate filter variables for ROX Swift code instrumentation
 
 Usage:
 $0 [<options>]

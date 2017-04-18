@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Rollout pre-build phase: `date`"
+echo "ROX pre-build phase: `date`"
 
 LIB_DIR=$(dirname "$0")
 ROLLOUT_DIR=$(dirname "$LIB_DIR")
@@ -24,8 +24,8 @@ rm -rf /tmp/rollout_var/open_replacements.log
 xcodeproj_configuration=`(. "$LIB_DIR"/versions; echo $xcodeproj_configuration)`
 [ 0$ROLLOUT_lastXcodeprojConfiguration -ge $xcodeproj_configuration ] || {
   cat << end_of_error_msg
-warning: Rollout.io SDK version was not reconfigured, aborting (the details are below)...
-Our guess is that you changed Rollout.io version in your podfile, but have not reconfigured it yet.
+warning: ROX.io SDK version was not reconfigured, aborting (the details are below)...
+Our guess is that you changed ROX.io version in your podfile, but have not reconfigured it yet.
 You need to run the configure_pod script again
 For objective-c and swift support, please run:
     "$ROLLOUT_DIR"/install/configure_pod.sh -k $app_key -s

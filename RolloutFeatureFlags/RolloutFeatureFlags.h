@@ -1,10 +1,10 @@
 
 #import <Foundation/Foundation.h>
-#import <Rollout/Rollout.h>
+#import <Rollout/ROX.h>
 
 #define RolloutFeatureFlags [RolloutFeatureFlagsClass sharedInstance]
 
-// This class will hold your Rollout's feature flags
+// This class will hold your ROX's feature flags
 @interface RolloutFeatureFlagsClass : NSObject
 
 +(instancetype)sharedInstance;
@@ -14,7 +14,7 @@
  
  e.g. 
  Define here:
-     @property (nonatomic, assign) RolloutFeature* myFeatureName;
+     @property (nonatomic, assign) ROXFlag* myFeatureName;
  
  Use:
     [RolloutFeatureFlags.myFeatureName enabled:^{

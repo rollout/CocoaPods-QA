@@ -62,7 +62,7 @@ done
 Usage:
 $0 <options>
 
-  -k <app key>           Rollout app key (required)
+  -k <app key>           ROX app key (required)
   -p <.xcodeproj dir>    a path to the project directory (optional, for cases
                          in which the script cannot locate it automatically)
   -h                     this help message
@@ -84,7 +84,7 @@ analytics rollout_sdk_ios_build_number $rollout_build
 analytics project_file_selected true 
 echo "Configuring project \"$xcode_dir\""
 
-rm -rf "$PROJECT_DIR"/Rollout-ios-SDK
+rm -rf "$PROJECT_DIR"/ROX-ios-SDK
 analytics  rm_exit_status $? 
 
 "$BIN_DIR"/Installer "$xcode_dir" "$app_key"

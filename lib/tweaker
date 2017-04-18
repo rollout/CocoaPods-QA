@@ -15,11 +15,11 @@ while getopts "k:hmclds" option; do #{{{
 done #}}}
 
 
-echo "Rollout post compile script"
+echo "ROX post compile script"
 
 cat 1>&2 << end_of_error_msg
-error: Rollout.io SDK version was not reconfigured, aborting...
-Our guess is that you changed Rollout.io version in your podfile, but have not reconfigured it yet.
+error: ROX.io SDK version was not reconfigured, aborting...
+Our guess is that you changed ROX.io version in your podfile, but have not reconfigured it yet.
 If this is correct, please run the following command:
     "$ROLLOUT_DIR"/install/configure_pod.sh -k $app_key
 
